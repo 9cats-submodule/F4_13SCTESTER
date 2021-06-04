@@ -10,7 +10,7 @@
 #ifndef _CMD_PROCESS_H
 #define _CMD_PROCESS_H
 #include "hmi_driver.h"
-#include "stm32f10x.h"
+#include "base.h"
 
 #define NOTIFY_TOUCH_PRESS         0X01  //触摸屏按下通知
 #define NOTIFY_TOUCH_RELEASE       0X03  //触摸屏松开通知

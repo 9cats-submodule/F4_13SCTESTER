@@ -8,7 +8,7 @@
 #ifndef _USER_UART__
 #define _USER_UART__
 
-#include "stm32f10x_it.h"     //根据用户MCU进行修改
+#include "base.h"
 
 #define uchar    unsigned char
 #define uint8    unsigned char

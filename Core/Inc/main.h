@@ -86,6 +86,10 @@ void Error_Handler(void);
 #define W25Q128_CS_GPIO_Port GPIOB
 #define LCD_BL_Pin GPIO_PIN_15
 #define LCD_BL_GPIO_Port GPIOB
+#define HMI_USART_TX_Pin GPIO_PIN_9
+#define HMI_USART_TX_GPIO_Port GPIOA
+#define HMI_USART_RX_Pin GPIO_PIN_10
+#define HMI_USART_RX_GPIO_Port GPIOA
 #define IIC_SCL_Pin GPIO_PIN_8
 #define IIC_SCL_GPIO_Port GPIOB
 #define IIC_SDA_Pin GPIO_PIN_9

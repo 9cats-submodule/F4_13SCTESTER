@@ -33,7 +33,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define NO_USE_UART1_IRQHander
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -63,6 +63,7 @@ uint8_t TP_PRES_EVET = 0;
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim7;
 extern TIM_HandleTypeDef htim8;
+extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -204,6 +205,22 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f4xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles USART1 global interrupt.
+  */
+void USART1_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART1_IRQn 0 */
+#ifndef NO_USE_UART1_IRQHander
+  /* USER CODE END USART1_IRQn 0 */
+  HAL_UART_IRQHandler(&huart1);
+  /* USER CODE BEGIN USART1_IRQn 1 */
+#endif
+  if(__HAL_UART_GET_FLAG(&huart1,UART_FLAG_RXNE))
+	  queue_push(USART1->DR & (uint16_t)0x01FF);
+  /* USER CODE END USART1_IRQn 1 */
+}
 
 /**
   * @brief This function handles TIM8 update interrupt and TIM13 global interrupt.

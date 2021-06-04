@@ -16,7 +16,7 @@ cmd_queue.c中共5个函数：清空指令数据queue_reset()、从串口添加指令数据queue_push(
 --------------------------------------------------------------------------------------
 ----------------------------------------------------------------------------------------*/
 #include "cmd_queue.h"
-#include "ulitity.h"
+#include "base.h"
 
 #define CMD_HEAD 0XEE                                                  //帧头
 #define CMD_TAIL 0XFFFCFFFF                                            //帧尾
@@ -28,7 +28,7 @@ typedef struct _QUEUE
     qdata _data[QUEUE_MAX_SIZE];                                       //队列数据缓存区
 }QUEUE;                                                           
 
-static QUEUE que = {0,0,0};                                            //指令队列
+static QUEUE que = {0,0,0,0,0};                                            //指令队列
 static uint32 cmd_state = 0;                                           //队列帧尾检测状态
 static qsize cmd_pos = 0;                                              //当前指令指针位置
 
