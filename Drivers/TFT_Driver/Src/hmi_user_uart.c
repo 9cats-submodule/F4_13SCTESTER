@@ -69,7 +69,7 @@ void UartInit(uint32 BaudRate)
 */
 void  SendChar(uchar t)
 {
-    USART_SendData(USART1,t);
+		USART1->DR = (t & (uint16_t)0x01FF);
     while(__HAL_UART_GET_FLAG(&huart1, UART_FLAG_TXE) == RESET);
     while(__HAL_UART_GET_FLAG(&huart1, UART_FLAG_TC) == RESET);
 }

@@ -70,7 +70,7 @@ void SetBcolor(uint16 color);
 /*! 
 *  \brief  清除画面
 */
-void GUI_CleanScreen();
+void GUI_CleanScreen(void);
 
 /*! 
 *  \brief  设置文字间隔
@@ -267,12 +267,12 @@ void SetTouchPaneOption(uint8 enbale,uint8 beep_on,uint8 work_mode,uint8 press_c
 /*! 
 *  \brief   校准触摸屏
 */
-void	CalibrateTouchPane();
+void	CalibrateTouchPane(void);
 
 /*! 
 *  \brief  触摸屏测试
 */
-void TestTouchPane();
+void TestTouchPane(void);
 
 /*! 
 *  \brief      设置当前写入图层
@@ -621,7 +621,7 @@ void BatchSetEnable(uint16 control_id,uint8 enable);
 /*! 
 *  \brief    结束批量更新
 */
-void BatchEnd();
+void BatchEnd(void);
 
 /*! 
 *  \brief     设置倒计时控件
@@ -717,7 +717,7 @@ void FlashSaveControl(uint16 screen_id,uint16 control_id);
 /*! 
 *  \brief     保存结束
 */
-void FlashEndSaveControl();
+void FlashEndSaveControl(void);
 
 /*! 
 *  \brief     从FLASH中恢复控件数据

@@ -58,6 +58,7 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -69,6 +70,7 @@ extern uint16_t Amplitude;
 extern uint32_t ARR;
 extern uint8_t TP_PRES_FACK;
 extern uint8_t TP_PRES_EVET;
+extern uint8_t RxBuffer;
 /* USER CODE END 0 */
 
 /**
@@ -107,19 +109,23 @@ int main(void)
   MX_SPI1_Init();
   MX_TIM8_Init();
   MX_USART1_UART_Init();
+
+  /* Initialize interrupts */
+  MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
   delay_init(168);
   HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
   HAL_TIM_Base_Start_IT(&htim7);
+	HAL_UART_Receive_IT(&huart1,&RxBuffer,1);
   W25QXX_Init();
   LCD_Init();
   font_init();
   tp_dev.init();
 
-	W25QXX_Read((u8 *)(&Amplitude),0x0000f000,2);
+  W25QXX_Read((u8 *)(&Amplitude),0x0000f000,2);
   W25QXX_Read((u8 *)(&ARR),0x0000f010,4);
-	//Amplitude = 1000;
-	//ARR = 680;
+  //Amplitude = 1000;
+  //ARR = 680;
   P_Amplitude = Amplitude;
   P_ARR = ARR;
 	
@@ -272,6 +278,20 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief NVIC Configuration.
+  * @retval None
+  */
+static void MX_NVIC_Init(void)
+{
+  /* TIM8_UP_TIM13_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM8_UP_TIM13_IRQn, 0, 2);
+  HAL_NVIC_EnableIRQ(TIM8_UP_TIM13_IRQn);
+  /* TIM7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(TIM7_IRQn, 3, 0);
+  HAL_NVIC_EnableIRQ(TIM7_IRQn);
 }
 
 /* USER CODE BEGIN 4 */

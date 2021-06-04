@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "touch.h"
+#include "usart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +67,7 @@ extern TIM_HandleTypeDef htim8;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
+extern uint8_t RxBuffer;
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -212,13 +214,11 @@ void SysTick_Handler(void)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
-#ifndef NO_USE_UART1_IRQHander
+
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */
-#endif
-  if(__HAL_UART_GET_FLAG(&huart1,UART_FLAG_RXNE))
-	  queue_push(USART1->DR & (uint16_t)0x01FF);
+  HAL_UART_Receive_IT(&huart1,&RxBuffer,1);
   /* USER CODE END USART1_IRQn 1 */
 }
 
