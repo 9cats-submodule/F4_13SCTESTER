@@ -152,18 +152,18 @@
         <Bp>
           <Number>0</Number>
           <Type>0</Type>
-          <LineNumber>120</LineNumber>
+          <LineNumber>219</LineNumber>
           <EnabledFlag>1</EnabledFlag>
-          <Address>134225100</Address>
+          <Address>134247480</Address>
           <ByteObject>0</ByteObject>
           <HtxType>0</HtxType>
           <ManyObjects>0</ManyObjects>
           <SizeOfObject>0</SizeOfObject>
           <BreakByAccess>0</BreakByAccess>
           <BreakIfRCount>1</BreakIfRCount>
-          <Filename>..\Core\Src\usart.c</Filename>
+          <Filename>../Core/Src/stm32f4xx_it.c</Filename>
           <ExecCommand></ExecCommand>
-          <Expression>\\F4_TOUCH\../Core/Src/usart.c\120</Expression>
+          <Expression>\\F4_TOUCH\../Core/Src/stm32f4xx_it.c\219</Expression>
         </Bp>
       </Breakpoint>
       <WatchWindow1>
@@ -181,6 +181,16 @@
           <count>2</count>
           <WinNumber>1</WinNumber>
           <ItemText>huart1</ItemText>
+        </Ww>
+        <Ww>
+          <count>3</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>que</ItemText>
+        </Ww>
+        <Ww>
+          <count>4</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>que</ItemText>
         </Ww>
       </WatchWindow1>
       <Tracepoint>
@@ -798,6 +808,18 @@
       <bDave2>0</bDave2>
       <PathWithFileName>..\Drivers\TFT_Driver\Src\hmi_user_uart.c</PathWithFileName>
       <FilenameWithoutPath>hmi_user_uart.c</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+    <File>
+      <GroupNumber>8</GroupNumber>
+      <FileNumber>43</FileNumber>
+      <FileType>1</FileType>
+      <tvExp>0</tvExp>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>..\Drivers\TFT_Driver\Src\cmd_process.c</PathWithFileName>
+      <FilenameWithoutPath>cmd_process.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

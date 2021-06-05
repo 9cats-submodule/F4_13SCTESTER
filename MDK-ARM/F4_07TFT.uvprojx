@@ -781,6 +781,11 @@
               <FileType>1</FileType>
               <FilePath>..\Drivers\TFT_Driver\Src\hmi_user_uart.c</FilePath>
             </File>
+            <File>
+              <FileName>cmd_process.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Drivers\TFT_Driver\Src\cmd_process.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

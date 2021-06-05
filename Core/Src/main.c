@@ -33,6 +33,7 @@
 #include "text.h"
 #include "touch.h"
 #include "w25qxx.h"
+#include "hmi_user_uart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,7 +71,6 @@ extern uint16_t Amplitude;
 extern uint32_t ARR;
 extern uint8_t TP_PRES_FACK;
 extern uint8_t TP_PRES_EVET;
-extern uint8_t RxBuffer;
 /* USER CODE END 0 */
 
 /**
@@ -116,12 +116,12 @@ int main(void)
   delay_init(168);
   HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
   HAL_TIM_Base_Start_IT(&htim7);
-	HAL_UART_Receive_IT(&huart1,&RxBuffer,1);
   W25QXX_Init();
   LCD_Init();
   font_init();
   tp_dev.init();
-
+  TFT_Init();
+	
   W25QXX_Read((u8 *)(&Amplitude),0x0000f000,2);
   W25QXX_Read((u8 *)(&ARR),0x0000f010,4);
   //Amplitude = 1000;
