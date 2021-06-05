@@ -115,17 +115,18 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef *uartHandle)
 }
 
 /* USER CODE BEGIN 1 */
-extern unsigned char buffer;
+extern unsigned char RxBuffer;
+extern unsigned char TxBuffer;
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART1)
   {
-      huart1.RxState = HAL_UART_STATE_READY;
-      __HAL_UNLOCK(&huart1);
-      queue_push(buffer);
-      // Param_Update();//中断里面处理完指令
-      SendChar(buffer);
-		HAL_UART_Receive_IT(&huart1, &buffer, 1);
+     huart1.RxState = HAL_UART_STATE_READY;
+     __HAL_UNLOCK(&huart1);
+     queue_push(RxBuffer);
+     // Param_Update();//中断里面处理完指令
+     SendChar(RxBuffer);
+		 HAL_UART_Receive_IT(&huart1, &RxBuffer, 1);
   }
 }
 /* USER CODE END 1 */

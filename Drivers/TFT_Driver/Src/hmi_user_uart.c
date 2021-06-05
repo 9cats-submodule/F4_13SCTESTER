@@ -39,11 +39,12 @@
 //#define R_UART_IRQ	huart1
 #define R_UART_	USART3
 
-unsigned char buffer;
+unsigned char RxBuffer;
+unsigned char TxBuffer;
 
 void TFT_Init(void)
 {
-    HAL_UART_Receive_IT(&huart1, &buffer, 1);//使能接收中断
+    HAL_UART_Receive_IT(&huart1, &RxBuffer, 1);//使能接收中断
     queue_reset();
 }
 void Param_Update(void) //获取当前新参数

@@ -34,6 +34,7 @@
 #include "touch.h"
 #include "w25qxx.h"
 #include "hmi_user_uart.h"
+#include "hmi_driver.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -71,6 +72,8 @@ extern uint16_t Amplitude;
 extern uint32_t ARR;
 extern uint8_t TP_PRES_FACK;
 extern uint8_t TP_PRES_EVET;
+
+const char STR[] = "2233";
 /* USER CODE END 0 */
 
 /**
@@ -186,11 +189,14 @@ int main(void)
           TP_PRES_FACK = 1;
 	  		  if(TP_CHECK(28,140,48,156))
 	  		  {
+						SetButtonValue(3,1,0);
+						
 	  		  	ARR = ARR<=50?ARR:ARR-1;
 	  		  	LCD_ShowNum(150, 140, ARR, 4, 16);
 	  		  }
 	  		  if(TP_CHECK(192,140,212,156))
 	  		  {
+						SetButtonValue(3,1,1);
 	  		  	ARR = ARR>=1000?ARR:ARR+1;
 	  		  	LCD_ShowNum(150, 140, ARR, 4, 16);
 	  		  }
