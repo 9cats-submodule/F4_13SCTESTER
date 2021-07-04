@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dac.h"
+#include "dma.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -35,6 +36,8 @@
 #include "w25qxx.h"
 #include "hmi_user_uart.h"
 #include "hmi_driver.h"
+
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -72,8 +75,9 @@ extern uint16_t Amplitude;
 extern uint32_t ARR;
 extern uint8_t TP_PRES_FACK;
 extern uint8_t TP_PRES_EVET;
-
-const char STR[] = "2233";
+extern u8 sendStatus,Txing_pos,Tx_pos;
+extern u8 receiveStatus,IPD;
+char STR[20] = "123456789\r\n";
 /* USER CODE END 0 */
 
 /**
@@ -106,6 +110,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_FSMC_Init();
   MX_DAC_Init();
   MX_TIM7_Init();
@@ -132,11 +137,19 @@ int main(void)
   P_Amplitude = Amplitude;
   P_ARR = ARR;
 	
-	delay_ms(10);
-	HAL_TIM_Base_DeInit(&htim8);
-	htim8.Init.Period = ARR;
-	HAL_TIM_Base_Init(&htim8);
+  delay_ms(10);
+  HAL_TIM_Base_DeInit(&htim8);
+  htim8.Init.Period = ARR;
+  HAL_TIM_Base_Init(&htim8);
   HAL_TIM_Base_Start_IT(&htim8);
+
+  HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+RST\r\n", sizeof("AT+RST\r\n")-1);
+  delay_ms(700);
+  HAL_UART_Transmit_DMA(&huart1, (u8*)"ATE0\r\n", sizeof("ATE0\r\n")-1);
+  delay_ms(100);
+  HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+CIPMUX=1\r\n", sizeof("AT+CIPMUX=1\r\n")-1);
+  delay_ms(200);
+  HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+CIPSERVER=1,7210\r\n", sizeof("AT+CIPSERVER=1,7210\r\n")-1);
 
   POINT_COLOR=RED;
 
@@ -173,9 +186,29 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    static u8 str[20]="AT+CIPSEND=0,0000\r"; //11   13|14|15|16
+    u8 j = 13;
+    STR[0] = 0x31;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	u16 Tx_size = Tx_stack_find_cmd(&TxBuffer);
+    if(Tx_size && !sendStatus && !receiveStatus)
+	{
+    	u16 size = Tx_size;
+    	sendStatus = 1;
+		Txing_pos = Tx_pos;
+        str[11] = IPD + 0x30;
+        str[14] = str[15] = str[16] = str[17] = 0x0d;
+        sprintf((char*)&str[13],"%-4d",Tx_size);
+        //×î¶àÎª9999
+        do{j++;}while(size/=10);
+        str[j++] = '\r';
+        str[j++] = '\n';
+        HAL_UART_Transmit_DMA(&huart1, str, j);
+    	delay_ms(50);
+    	HAL_UART_Transmit_DMA(&huart1, TxBuffer, Tx_size);
+    }
 
 
 	  tp_dev.scan(0);
@@ -189,14 +222,14 @@ int main(void)
           TP_PRES_FACK = 1;
 	  		  if(TP_CHECK(28,140,48,156))
 	  		  {
-						SetButtonValue(3,1,0);
+	  			SetTextValue(0,21,(u8*)"2333");
 						
 	  		  	ARR = ARR<=50?ARR:ARR-1;
 	  		  	LCD_ShowNum(150, 140, ARR, 4, 16);
 	  		  }
 	  		  if(TP_CHECK(192,140,212,156))
 	  		  {
-						SetButtonValue(3,1,1);
+	  			SetTextValue(0,21,(u8*)"2333");
 	  		  	ARR = ARR>=1000?ARR:ARR+1;
 	  		  	LCD_ShowNum(150, 140, ARR, 4, 16);
 	  		  }

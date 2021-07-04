@@ -3,6 +3,7 @@
 
 #define CMD_HEAD 0XEE  //帧头
 #define CMD_TAIL 0XFFFCFFFF //帧尾
+#define CMD_IPD  0X50442C //IPD
 
 typedef struct _QUEUE
 {
@@ -11,9 +12,11 @@ typedef struct _QUEUE
 	qdata _data[QUEUE_MAX_SIZE];	//队列数据缓存区
 }QUEUE;
 
-static QUEUE que = {0,0,0};  //指令队列
+static QUEUE que = {0};  //指令队列
 static uint32 cmd_state = 0;  //队列帧尾检测状态
 static qsize cmd_pos = 0;  //当前指令指针位置
+
+extern u8 IPD;
 
 void queue_reset()
 {
@@ -64,6 +67,10 @@ qsize queue_find_cmd(qdata *buffer,qsize buf_len)
 
 		cmd_state = ((cmd_state<<8)|_data);//拼接最后4个字节，组成一个32位整数
 
+		if(cmd_state==CMD_IPD)
+		{
+			IPD = _data-0x30;
+		}
 		//最后4个字节与帧尾匹配，得到完整帧
 		if(cmd_state==CMD_TAIL)
 		{

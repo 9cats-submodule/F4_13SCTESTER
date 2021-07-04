@@ -25,6 +25,7 @@
 /* USER CODE BEGIN Includes */
 #include "touch.h"
 #include "usart.h"
+#include "hmi_user_uart.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,6 +65,7 @@ uint8_t TP_PRES_EVET = 0;
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim7;
 extern TIM_HandleTypeDef htim8;
+extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
@@ -249,10 +251,28 @@ void TIM7_IRQHandler(void)
   /* USER CODE BEGIN TIM7_IRQn 1 */
   if(TP_PRES_FACK)
   {
-		TP_PRES_TIME++;
+	TP_PRES_TIME++;
     TP_PRES_EVET=0;
   }
   /* USER CODE END TIM7_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA2 stream7 global interrupt.
+  */
+void DMA2_Stream7_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA2_Stream7_IRQn 0 */
+  extern u8 sendStatus;
+  extern u8 Txing_pos;
+  extern Tx_STACK Tx_stack;
+  /* USER CODE END DMA2_Stream7_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_usart1_tx);
+  /* USER CODE BEGIN DMA2_Stream7_IRQn 1 */
+
+  if(sendStatus == 1) sendStatus = 2;
+  else if(sendStatus == 2) {sendStatus = 0;Tx_stack._state[Txing_pos]=3;};
+  /* USER CODE END DMA2_Stream7_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
