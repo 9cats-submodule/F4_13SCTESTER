@@ -19,10 +19,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "dac.h"
 #include "dma.h"
 #include "spi.h"
-#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 #include "fsmc.h"
@@ -63,21 +61,14 @@
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-extern uint16_t TP_PRES_TIME;
-extern uint16_t Amplitude;
-extern uint32_t ARR;
-extern uint8_t TP_PRES_FACK;
-extern uint8_t TP_PRES_EVET;
 extern u8 sendStatus,Txing_pos,Tx_pos;
 extern u8 receiveStatus,IPD;
-char STR[20] = "123456789\r\n";
 /* USER CODE END 0 */
 
 /**
@@ -87,9 +78,7 @@ char STR[20] = "123456789\r\n";
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  u16 ct=0;
-  u16 P_Amplitude = 0;
-  u32 P_ARR       = 0;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -112,14 +101,8 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_FSMC_Init();
-  MX_DAC_Init();
-  MX_TIM7_Init();
   MX_SPI1_Init();
-  MX_TIM8_Init();
   MX_USART1_UART_Init();
-
-  /* Initialize interrupts */
-  MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
   delay_init(168);
   HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
@@ -129,19 +112,12 @@ int main(void)
   font_init();
   tp_dev.init();
   TFT_Init();
-	
-  W25QXX_Read((u8 *)(&Amplitude),0x0000f000,2);
-  W25QXX_Read((u8 *)(&ARR),0x0000f010,4);
+
+  //初始时读取值
+  //W25QXX_Read((u8 *)(&Amplitude),0x0000f000,2);
+  //W25QXX_Read((u8 *)(&ARR),0x0000f010,4);
   //Amplitude = 1000;
   //ARR = 680;
-  P_Amplitude = Amplitude;
-  P_ARR = ARR;
-	
-  delay_ms(10);
-  HAL_TIM_Base_DeInit(&htim8);
-  htim8.Init.Period = ARR;
-  HAL_TIM_Base_Init(&htim8);
-  HAL_TIM_Base_Start_IT(&htim8);
 
   HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+RST\r\n", sizeof("AT+RST\r\n")-1);
   delay_ms(700);
@@ -151,35 +127,6 @@ int main(void)
   delay_ms(200);
   HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+CIPSERVER=1,7210\r\n", sizeof("AT+CIPSERVER=1,7210\r\n")-1);
 
-  POINT_COLOR=RED;
-
-  Show_Str_Mid(20, 10,  (uint8_t *)"无线能量传输装置", 24, 20);
-  Show_Str_Mid(56, 40,  (uint8_t *)"信号源部分", 24, 20);
-  Show_Str_Mid(48, 80,  (uint8_t *)"频率:   .    KHz", 16, 20);
-  Show_Str_Mid(48, 100, (uint8_t *)"幅值:        mV", 16, 20);
-  Show_Str_Mid(52, 140, (uint8_t *)"自动装载值:", 16, 20);
-  Show_Str_Mid(52, 180, (uint8_t *)" DA输出值 :", 16, 20);
-
-
-  LCD_ShowNum(88,  80, 84000000/ARR/1000, 3, 16);
-  LCD_ShowNum(120, 80, 84000000/ARR%1000, 3, 16);
-  LCD_ShowNum(108, 100, Amplitude*3300/4096, 4, 16);
-  LCD_ShowNum(150, 140, ARR, 4, 16);
-  LCD_ShowNum(150, 180, Amplitude, 4, 16);
-
-  ct = 140;
-  LCD_Fill( 28,   ct,  48, ct+16, GRAY);
-  LCD_Fill( 32, ct+8,  44,  ct+9, GREEN);
-  LCD_Fill(192,   ct, 212, ct+16, GRAY);
-  LCD_Fill(196, ct+8, 208,  ct+9, RED);
-  LCD_Fill(202, ct+4, 203, ct+12, RED);
-
-  ct = 180;
-  LCD_Fill( 28,   ct,  48, ct+16, GRAY);
-  LCD_Fill( 32, ct+8,  44,  ct+9, GREEN);
-  LCD_Fill(192,   ct, 212, ct+16, GRAY);
-  LCD_Fill(196, ct+8, 208,  ct+9, RED);
-  LCD_Fill(202, ct+4, 203, ct+12, RED);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -317,20 +264,6 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-}
-
-/**
-  * @brief NVIC Configuration.
-  * @retval None
-  */
-static void MX_NVIC_Init(void)
-{
-  /* TIM8_UP_TIM13_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(TIM8_UP_TIM13_IRQn, 0, 2);
-  HAL_NVIC_EnableIRQ(TIM8_UP_TIM13_IRQn);
-  /* TIM7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(TIM7_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(TIM7_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
