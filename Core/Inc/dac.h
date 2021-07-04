@@ -1,8 +1,8 @@
 /**
   ******************************************************************************
-  * @file    spi.h
+  * @file    dac.h
   * @brief   This file contains all the function prototypes for
-  *          the spi.c file
+  *          the dac.c file
   ******************************************************************************
   * @attention
   *
@@ -17,8 +17,8 @@
   ******************************************************************************
   */
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef __SPI_H__
-#define __SPI_H__
+#ifndef __DAC_H__
+#define __DAC_H__
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,15 +31,13 @@ extern "C" {
 
 /* USER CODE END Includes */
 
-extern SPI_HandleTypeDef hspi1;
-extern SPI_HandleTypeDef hspi3;
+extern DAC_HandleTypeDef hdac;
 
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
 
-void MX_SPI1_Init(void);
-void MX_SPI3_Init(void);
+void MX_DAC_Init(void);
 
 /* USER CODE BEGIN Prototypes */
 
@@ -49,6 +47,6 @@ void MX_SPI3_Init(void);
 }
 #endif
 
-#endif /* __SPI_H__ */
+#endif /* __DAC_H__ */
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

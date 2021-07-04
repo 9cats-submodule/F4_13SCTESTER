@@ -19,8 +19,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dac.h"
 #include "dma.h"
 #include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 #include "fsmc.h"
@@ -34,6 +36,7 @@
 #include "w25qxx.h"
 #include "hmi_user_uart.h"
 #include "hmi_driver.h"
+#include "ADS8688.h"
 
 #include "stdio.h"
 /* USER CODE END Includes */
@@ -103,21 +106,23 @@ int main(void)
   MX_FSMC_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
+  MX_SPI3_Init();
+  MX_DAC_Init();
+  MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
   delay_init(168);
   HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
-  HAL_TIM_Base_Start_IT(&htim7);
   W25QXX_Init();
   LCD_Init();
   font_init();
   tp_dev.init();
   TFT_Init();
+  ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
+  HAL_TIM_Base_Start_IT(&htim8);
 
   //初始时读取值
   //W25QXX_Read((u8 *)(&Amplitude),0x0000f000,2);
   //W25QXX_Read((u8 *)(&ARR),0x0000f010,4);
-  //Amplitude = 1000;
-  //ARR = 680;
 
   HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+RST\r\n", sizeof("AT+RST\r\n")-1);
   delay_ms(700);
@@ -135,7 +140,6 @@ int main(void)
   {
     static u8 str[20]="AT+CIPSEND=0,0000\r"; //11   13|14|15|16
     u8 j = 13;
-    STR[0] = 0x31;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -156,68 +160,6 @@ int main(void)
     	delay_ms(50);
     	HAL_UART_Transmit_DMA(&huart1, TxBuffer, Tx_size);
     }
-
-
-	  tp_dev.scan(0);
-	  if(tp_dev.sta & TP_PRES_DOWN)
-	  {
-	    if(TP_PRES_TIME == 0 || (TP_PRES_TIME > 200 && TP_PRES_TIME%20 == 0))
-	    {
-	  		if(!TP_PRES_EVET) //如果该tick没有触屏事件
-	  		{
-          TP_PRES_EVET = 1;
-          TP_PRES_FACK = 1;
-	  		  if(TP_CHECK(28,140,48,156))
-	  		  {
-	  			SetTextValue(0,21,(u8*)"2333");
-						
-	  		  	ARR = ARR<=50?ARR:ARR-1;
-	  		  	LCD_ShowNum(150, 140, ARR, 4, 16);
-	  		  }
-	  		  if(TP_CHECK(192,140,212,156))
-	  		  {
-	  			SetTextValue(0,21,(u8*)"2333");
-	  		  	ARR = ARR>=1000?ARR:ARR+1;
-	  		  	LCD_ShowNum(150, 140, ARR, 4, 16);
-	  		  }
-	  		  if(TP_CHECK(28,180,48,196))
-	  		  {
-	  		  	Amplitude = Amplitude==0?0:Amplitude-1;
-	  		  	LCD_ShowNum(150, 180, Amplitude, 4, 16);
-	  		  }
-	  		  if(TP_CHECK(192,180,212,196))
-	  		  {
-	  		  	Amplitude = Amplitude==4095?4095:Amplitude+1;
-	  		  	LCD_ShowNum(150, 180, Amplitude, 4, 16);
-	  		  }
-	  		}
-	    }
-	  }
-	  else
-	  {
-	    //if(tp_dev.sta & TP_PRES_FACK){}
-	    TP_PRES_TIME = 0;
-      TP_PRES_FACK = 0;
-	  	TP_PRES_EVET = 0;
-
-	    if(P_Amplitude != Amplitude)
-	    {
-	    	P_Amplitude = Amplitude;
-				LCD_ShowNum(108, 100, Amplitude*3300/4096, 4, 16);
-				W25QXX_Write((u8 *)(&Amplitude),0x0000f000,2);
-	    }
-	    if(P_ARR != ARR)
-	    {
-	  	  P_ARR = ARR;
-				LCD_ShowNum(88,  80, 84000000/ARR/1000, 3, 16);
-				LCD_ShowNum(120, 80, 84000000/ARR%1000, 3, 16);
-				W25QXX_Write((u8 *)(&ARR),0x0000f010,4);
-	      HAL_TIM_Base_DeInit(&htim8);
-	      htim8.Init.Period = ARR;
-	      HAL_TIM_Base_Init(&htim8);
-				HAL_TIM_Base_Start_IT(&htim8);
-	    }
-	  }
   }
   /* USER CODE END 3 */
 }

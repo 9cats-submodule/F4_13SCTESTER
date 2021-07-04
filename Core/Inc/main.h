@@ -88,6 +88,14 @@ void Error_Handler(void);
 #define TFT_UART_TX_GPIO_Port GPIOA
 #define TFT_UART_RX_Pin GPIO_PIN_10
 #define TFT_UART_RX_GPIO_Port GPIOA
+#define ADS8688_CS_Pin GPIO_PIN_15
+#define ADS8688_CS_GPIO_Port GPIOA
+#define ADS8688_SCK_Pin GPIO_PIN_10
+#define ADS8688_SCK_GPIO_Port GPIOC
+#define ADS8688_MISO_Pin GPIO_PIN_11
+#define ADS8688_MISO_GPIO_Port GPIOC
+#define ADS8688_MOSI_Pin GPIO_PIN_12
+#define ADS8688_MOSI_GPIO_Port GPIOC
 #define IIC_SCL_Pin GPIO_PIN_8
 #define IIC_SCL_GPIO_Port GPIOB
 #define IIC_SDA_Pin GPIO_PIN_9

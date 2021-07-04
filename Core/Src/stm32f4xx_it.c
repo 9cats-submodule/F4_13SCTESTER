@@ -26,6 +26,8 @@
 #include "touch.h"
 #include "usart.h"
 #include "hmi_user_uart.h"
+#include "dac.h"
+#include "spi.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -60,9 +62,12 @@ uint16_t Amplitude = 0;
 uint32_t ARR = 0;
 uint8_t TP_PRES_FACK = 0;
 uint8_t TP_PRES_EVET = 0;
+uint8_t n = 1;
+uint8_t rxbuf[4] = {0};
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern TIM_HandleTypeDef htim8;
 extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
@@ -220,6 +225,27 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 1 */
 	
   /* USER CODE END USART1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles TIM8 update interrupt and TIM13 global interrupt.
+  */
+void TIM8_UP_TIM13_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 0 */
+  uint8_t txbuf[2] = {0x00, 0x00};
+  /* USER CODE END TIM8_UP_TIM13_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim8);
+  /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 1 */
+  //hdac.Instance->DHR12R1 =
+  HAL_GPIO_WritePin(ADS8688_CS_GPIO_Port, ADS8688_CS_Pin, GPIO_PIN_RESET);
+  HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf, 2, 10);
+  if(!(rxbuf[0] == 0 && rxbuf[1] == 0 && rxbuf[2] == 0 && rxbuf[3] == 0)){
+	  rxbuf[0]=1;
+  }
+  HAL_GPIO_WritePin(ADS8688_CS_GPIO_Port, ADS8688_CS_Pin, GPIO_PIN_SET);
+  hdac.Instance->DHR12R1 = *(u16*)(&rxbuf[2]) / 16;
+  /* USER CODE END TIM8_UP_TIM13_IRQn 1 */
 }
 
 /**

@@ -7,7 +7,6 @@
 #include "string.h"
 #include "stdarg.h"
 #include "stm32f4xx_hal.h"
-#include "tim.h"
 #include "base.h"
 
 extern float goodAmp[2];
