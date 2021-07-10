@@ -20,7 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dac.h"
-#include "dma.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -37,8 +36,6 @@
 #include "hmi_user_uart.h"
 #include "hmi_driver.h"
 #include "ADS8688.h"
-
-#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -70,8 +67,51 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-extern u8 sendStatus,Txing_pos,Tx_pos;
-extern u8 receiveStatus,IPD;
+
+//下面为需要储存的数据
+uint32_t ADDR_START = 0x0000f000;//默认储存开始地址，同时为变量起始地址
+uint8_t  WIFI=0;             //WIFI状态是否开启
+uint8_t  CH_SELECT=3;        //当前所选通道 0 1 2 3
+uint8_t  TG_SOURCE=0;        //触发源 1-CH1 2-CH2
+uint8_t  TG_MODE=1;          //触发模式 1-上升沿触发，2-下降沿触发，3-电平触发
+int16_t  TG_VAL=0;           //触发电平
+uint8_t  RUN=1;              //是否STOP
+uint8_t  AUTO=0;             //是否AUTO
+uint8_t  COUPE=0;            //耦合方式 0-直流 1-交流
+float VREF = 4.096f;         //ADS参考电压
+float VCC  = 3.300f;         //STM32参考电压
+float COMPENSATE = 99.0f;    //频率补偿
+uint32_t ADDR_END;//默认结束地址
+
+//数据保存操作
+//mode-0 写入默认  mode-1 读出 mode-2 数据检查并更新
+#define DATA_SAVE(vAddr,fAddr) W25QXX_Write(vAddr,fAddr,1)
+#define DATA_READ(vAddr,fAddr) W25QXX_Read (vAddr,fAddr,1)
+
+void DATA_OP(u8 mode)
+{
+	u8 *VAR_ADDR   = (u8*)&ADDR_START; //变量首地址
+	u32 FLASH_ADDR =       ADDR_START; //FLASH储存首地址
+	u8  data;
+
+	while(VAR_ADDR < (u8*)&ADDR_END)
+	{
+		switch(mode)
+		{
+		    case 0:DATA_SAVE(VAR_ADDR++,FLASH_ADDR++);break;
+		    case 1:DATA_READ(VAR_ADDR++,FLASH_ADDR++);break;
+		    case 2:
+		    {
+			  DATA_READ(&data,FLASH_ADDR);
+			  if(data != *VAR_ADDR)
+			  DATA_SAVE(VAR_ADDR++,FLASH_ADDR++);
+			  else{VAR_ADDR++;FLASH_ADDR++;}
+		    }break;
+		}
+	}
+}
+void DATA_INIT() {u8 key = KEY_Scan(0);if(key == KEY0_PRES) DATA_OP(0);else DATA_OP(1);}
+void DATA_UPDATE() {DATA_OP(2);}
 /* USER CODE END 0 */
 
 /**
@@ -102,7 +142,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_FSMC_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
@@ -110,27 +149,18 @@ int main(void)
   MX_DAC_Init();
   MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
+  //无时耗
   delay_init(168);
-  HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
   W25QXX_Init();
   LCD_Init();
   font_init();
   tp_dev.init();
   TFT_Init();
   ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
+  HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
+  //时耗
+  DATA_INIT();
   HAL_TIM_Base_Start_IT(&htim8);
-
-  //初始时读取值
-  //W25QXX_Read((u8 *)(&Amplitude),0x0000f000,2);
-  //W25QXX_Read((u8 *)(&ARR),0x0000f010,4);
-
-  HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+RST\r\n", sizeof("AT+RST\r\n")-1);
-  delay_ms(700);
-  HAL_UART_Transmit_DMA(&huart1, (u8*)"ATE0\r\n", sizeof("ATE0\r\n")-1);
-  delay_ms(100);
-  HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+CIPMUX=1\r\n", sizeof("AT+CIPMUX=1\r\n")-1);
-  delay_ms(200);
-  HAL_UART_Transmit_DMA(&huart1, (u8*)"AT+CIPSERVER=1,7210\r\n", sizeof("AT+CIPSERVER=1,7210\r\n")-1);
 
   /* USER CODE END 2 */
 
@@ -138,28 +168,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    static u8 str[20]="AT+CIPSEND=0,0000\r"; //11   13|14|15|16
-    u8 j = 13;
+	u8 temp;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	u16 Tx_size = Tx_stack_find_cmd(&TxBuffer);
-    if(Tx_size && !sendStatus && !receiveStatus)
-	{
-    	u16 size = Tx_size;
-    	sendStatus = 1;
-		Txing_pos = Tx_pos;
-        str[11] = IPD + 0x30;
-        str[14] = str[15] = str[16] = str[17] = 0x0d;
-        sprintf((char*)&str[13],"%-4d",Tx_size);
-        //最多为9999
-        do{j++;}while(size/=10);
-        str[j++] = '\r';
-        str[j++] = '\n';
-        HAL_UART_Transmit_DMA(&huart1, str, j);
-    	delay_ms(50);
-    	HAL_UART_Transmit_DMA(&huart1, TxBuffer, Tx_size);
-    }
+	HAL_UART_Transmit(huart, pData, Size);
   }
   /* USER CODE END 3 */
 }

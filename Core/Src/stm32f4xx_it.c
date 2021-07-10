@@ -68,7 +68,6 @@ uint8_t rxbuf[4] = {0};
 
 /* External variables --------------------------------------------------------*/
 extern TIM_HandleTypeDef htim8;
-extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
@@ -246,24 +245,6 @@ void TIM8_UP_TIM13_IRQHandler(void)
   HAL_GPIO_WritePin(ADS8688_CS_GPIO_Port, ADS8688_CS_Pin, GPIO_PIN_SET);
   hdac.Instance->DHR12R1 = *(u16*)(&rxbuf[2]) / 16;
   /* USER CODE END TIM8_UP_TIM13_IRQn 1 */
-}
-
-/**
-  * @brief This function handles DMA2 stream7 global interrupt.
-  */
-void DMA2_Stream7_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA2_Stream7_IRQn 0 */
-  extern u8 sendStatus;
-  extern u8 Txing_pos;
-  extern Tx_STACK Tx_stack;
-  /* USER CODE END DMA2_Stream7_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart1_tx);
-  /* USER CODE BEGIN DMA2_Stream7_IRQn 1 */
-
-  if(sendStatus == 1) sendStatus = 2;
-  else if(sendStatus == 2) {sendStatus = 0;Tx_stack._state[Txing_pos]=3;};
-  /* USER CODE END DMA2_Stream7_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
