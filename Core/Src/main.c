@@ -68,8 +68,15 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-//下面为需要储存的数据
+#define SAMPLE_BEGIN PAout(15)=0;
+#define SAMPLE_END   PAout(15)=1;
+extern u8 rxbuf[2][4];
+extern u8 rxdata[2]  ;
+extern u8 txbuf[2]   ;
+
+
 uint32_t ADDR_START = 0x0000f000;//默认储存开始地址，同时为变量起始地址
+//----------------需要储存的数据---------------------------
 uint8_t  WIFI=0;             //WIFI状态是否开启
 uint8_t  CH_SELECT=3;        //当前所选通道 0 1 2 3
 uint8_t  TG_SOURCE=0;        //触发源 1-CH1 2-CH2
@@ -81,13 +88,11 @@ uint8_t  COUPE=0;            //耦合方式 0-直流 1-交流
 float VREF = 4.096f;         //ADS参考电压
 float VCC  = 3.300f;         //STM32参考电压
 float COMPENSATE = 99.0f;    //频率补偿
+//---------------------end--------------------------------
 uint32_t ADDR_END;//默认结束地址
 
 //数据保存操作
 //mode-0 写入默认  mode-1 读出 mode-2 数据检查并更新
-#define DATA_SAVE(vAddr,fAddr) W25QXX_Write(vAddr,fAddr,1)
-#define DATA_READ(vAddr,fAddr) W25QXX_Read (vAddr,fAddr,1)
-
 void DATA_OP(u8 mode)
 {
 	u8 *VAR_ADDR   = (u8*)&ADDR_START; //变量首地址
@@ -98,13 +103,13 @@ void DATA_OP(u8 mode)
 	{
 		switch(mode)
 		{
-		    case 0:DATA_SAVE(VAR_ADDR++,FLASH_ADDR++);break;
-		    case 1:DATA_READ(VAR_ADDR++,FLASH_ADDR++);break;
+		    case 0:W25QXX_Write(VAR_ADDR++,FLASH_ADDR++,1);break;
+		    case 1:W25QXX_Read (VAR_ADDR++,FLASH_ADDR++,1);break;
 		    case 2:
 		    {
-			  DATA_READ(&data,FLASH_ADDR);
+		      W25QXX_Read (&data,FLASH_ADDR,1);
 			  if(data != *VAR_ADDR)
-			  DATA_SAVE(VAR_ADDR++,FLASH_ADDR++);
+		      W25QXX_Write(VAR_ADDR++,FLASH_ADDR++,1);
 			  else{VAR_ADDR++;FLASH_ADDR++;}
 		    }break;
 		}
@@ -158,10 +163,21 @@ int main(void)
   TFT_Init();
   ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
   HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
+
+  delay_ms(100);
+
   //时耗
   DATA_INIT();
-  HAL_TIM_Base_Start_IT(&htim8);
 
+  SAMPLE_BEGIN;
+  //HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[0], 2);
+  HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf[0], 2,1000);
+  delay_ms(100);
+  SAMPLE_END;
+
+//  HAL_TIM_Base_Start_IT(&htim8);
+  delay_ms(100);
+  delay_ms(100);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -172,7 +188,18 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	HAL_UART_Transmit(huart, pData, Size);
+
+	temp = (u8)WIFI;
+	temp = (u8)CH_SELECT;
+	temp = (u8)TG_SOURCE;
+	temp = (u8)TG_MODE;
+	temp = (u8)TG_VAL;
+	temp = (u8)RUN;
+	temp = (u8)AUTO;
+	temp = (u8)COUPE;
+	temp = (u8)VREF;
+	temp = (u8)VCC;
+	temp = (u8)COMPENSATE;
   }
   /* USER CODE END 3 */
 }

@@ -313,6 +313,7 @@ RCC.LSI_VALUE=32000
 SH.FSMC_D13_DA13.0=FSMC_D13,16b-d1
 PA15.Signal=GPIO_Output
 PF8.Signal=GPIO_Output
+NVIC.SPI3_IRQn=true\:0\:1\:false\:false\:true\:true\:true
 TIM8.Prescaler=168
 PB9.GPIO_Speed=GPIO_SPEED_FREQ_VERY_HIGH
 SPI3.IPParameters=VirtualType,Mode,Direction,CalculateBaudRate,DataSize,BaudRatePrescaler,CLKPhase

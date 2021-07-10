@@ -37,7 +37,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NO_USE_UART1_IRQHander
+#define SAMPLE_BEGIN PAout(15)=0;
+#define SAMPLE_END   PAout(15)=1;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,16 +58,31 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint16_t TP_PRES_TIME = 0;
-uint16_t Amplitude = 0;
-uint32_t ARR = 0;
-uint8_t TP_PRES_FACK = 0;
-uint8_t TP_PRES_EVET = 0;
-uint8_t n = 1;
-uint8_t rxbuf[4] = {0};
+
+
+//------------接收和发送BUF--------------
+u8 rxbuf[2][4] = {0};
+u8 rxdata[2]   = {0};
+u8 txbuf[2]    = {0};
+//----------------------------------------
+
+//---------------标志-------------------
+u8 ADS8688_BUSY = 0;
+
+//---------------------------------------
+
+//---------------变量-------------------
+u8 CH = 0; //下次将要采样的通道|正在采样的通道
+
+//---------------------------------------
+
+
+
+
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern SPI_HandleTypeDef hspi3;
 extern TIM_HandleTypeDef htim8;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
@@ -232,19 +248,34 @@ void USART1_IRQHandler(void)
 void TIM8_UP_TIM13_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 0 */
-  uint8_t txbuf[2] = {0x00, 0x00};
+
   /* USER CODE END TIM8_UP_TIM13_IRQn 0 */
   HAL_TIM_IRQHandler(&htim8);
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 1 */
-  //hdac.Instance->DHR12R1 =
-  HAL_GPIO_WritePin(ADS8688_CS_GPIO_Port, ADS8688_CS_Pin, GPIO_PIN_RESET);
-  HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf, 2, 10);
-  if(!(rxbuf[0] == 0 && rxbuf[1] == 0 && rxbuf[2] == 0 && rxbuf[3] == 0)){
-	  rxbuf[0]=1;
+  if(!ADS8688_BUSY)
+  {
+    //SAMPLE_BEGIN;
+    //HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf[0], 2,200);
+    //SAMPLE_END;
+
+    //if(CH) HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[0], 2);
+    //else   HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[1], 2);
   }
-  HAL_GPIO_WritePin(ADS8688_CS_GPIO_Port, ADS8688_CS_Pin, GPIO_PIN_SET);
-  hdac.Instance->DHR12R1 = *(u16*)(&rxbuf[2]) / 16;
   /* USER CODE END TIM8_UP_TIM13_IRQn 1 */
+}
+
+/**
+  * @brief This function handles SPI3 global interrupt.
+  */
+void SPI3_IRQHandler(void)
+{
+  /* USER CODE BEGIN SPI3_IRQn 0 */
+
+  /* USER CODE END SPI3_IRQn 0 */
+//  HAL_SPI_IRQHandler(&hspi3);
+  /* USER CODE BEGIN SPI3_IRQn 1 */
+
+  /* USER CODE END SPI3_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
