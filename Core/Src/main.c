@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "dac.h"
+#include "dma.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -36,6 +37,8 @@
 #include "hmi_user_uart.h"
 #include "hmi_driver.h"
 #include "ADS8688.h"
+#include "stdio.h"
+#include "arm_math.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,6 +49,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define TP_CHECK(x0,y0,x1,y1) tp_dev.x[0] > x0 && tp_dev.y[0] > y0 && tp_dev.x[0] < x1 && tp_dev.y[0] < y1
+#define SAMPLE_BEGIN PAout(15)=0;
+#define SAMPLE_END   PAout(15)=1;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -67,29 +72,35 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//---------------------------------DEBUG--------------------------------
+arm_fir_instance_f32 S;
+extern u8  SAMPLE_END_FLAG;
+extern float BUF[2000];
+float FIR_BUF[2000];
+float FIR_STA[2000];
 
-#define SAMPLE_BEGIN PAout(15)=0;
-#define SAMPLE_END   PAout(15)=1;
 extern u8 rxbuf[2][4];
-extern u8 rxdata[2]  ;
 extern u8 txbuf[2]   ;
+extern u16 rxdata[2]  ;
 
-
-uint32_t ADDR_START = 0x0000f000;//默认储存开始地址，同时为变量起始地址
-//----------------需要储存的数据---------------------------
-uint8_t  WIFI=0;             //WIFI状态是否开启
-uint8_t  CH_SELECT=3;        //当前所选通道 0 1 2 3
-uint8_t  TG_SOURCE=0;        //触发源 1-CH1 2-CH2
-uint8_t  TG_MODE=1;          //触发模式 1-上升沿触发，2-下降沿触发，3-电平触发
-int16_t  TG_VAL=0;           //触发电平
-uint8_t  RUN=1;              //是否STOP
-uint8_t  AUTO=0;             //是否AUTO
-uint8_t  COUPE=0;            //耦合方式 0-直流 1-交流
-float VREF = 4.096f;         //ADS参考电压
-float VCC  = 3.300f;         //STM32参考电压
-float COMPENSATE = 99.0f;    //频率补偿
-//---------------------end--------------------------------
-uint32_t ADDR_END;//默认结束地址
+//---------------------------------------------------------------------------------------------------------------
+#define AT(addr) __attribute__((section(addr)))
+uint32_t ADDR_START     AT(".ARM.__at_0X20008000")=0x0000f000;//默认储存开始地址，同时为变量起始地址
+//-----------------------------------------需要储存的数据--------------------------------------------------------
+uint8_t  WIFI           AT(".ARM.__at_0X20008004")=0;             //WIFI状态是否开启
+uint8_t  CH_SELECT      AT(".ARM.__at_0X20008005")=3;        //当前所选通道 0 1 2 3
+uint8_t  TG_SOURCE      AT(".ARM.__at_0X20008006")=0;        //触发源 1-CH1 2-CH2
+uint8_t  TG_MODE        AT(".ARM.__at_0X20008007")=1;          //触发模式 1-上升沿触发，2-下降沿触发，3-电平触发
+uint8_t  RUN            AT(".ARM.__at_0X20008008")=1;              //是否STOP
+uint8_t  AUTO           AT(".ARM.__at_0X20008009")=0;             //是否AUTO
+uint8_t  COUPE          AT(".ARM.__at_0X2000800a")=0;            //耦合方式 0-直流 1-交流
+int16_t  TG_VAL         AT(".ARM.__at_0X2000800b")=0;           //触发电平
+float VREF              AT(".ARM.__at_0X2000800d")=4.096f;         //ADS参考电压
+float VCC               AT(".ARM.__at_0X20008011")=3.300f;         //STM32参考电压
+float COMPENSATE        AT(".ARM.__at_0X20008015")=99.0f;    //频率补偿
+//--------------------------------------------------end------------------------------------------------------------
+uint32_t ADDR_END       AT(".ARM.__at_0X20008019")=0;//默认结束地址
+//-----------------------------------------------------------------------------------------------------------------
 
 //数据保存操作
 //mode-0 写入默认  mode-1 读出 mode-2 数据检查并更新
@@ -147,6 +158,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_FSMC_Init();
   MX_SPI1_Init();
   MX_USART1_UART_Init();
@@ -163,21 +175,23 @@ int main(void)
   TFT_Init();
   ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
   HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
+  arm_fir_init_f32(&S,33,BUF,FIR_STA,2000);
+
 
   delay_ms(100);
-
-  //时耗
-  DATA_INIT();
 
   SAMPLE_BEGIN;
-  //HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[0], 2);
-  HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf[0], 2,1000);
+  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);
   delay_ms(100);
-  SAMPLE_END;
+  //时耗
+
+  DATA_INIT();
+
 
 //  HAL_TIM_Base_Start_IT(&htim8);
   delay_ms(100);
   delay_ms(100);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -185,10 +199,21 @@ int main(void)
   while (1)
   {
 	u8 temp;
+	static u16 i=0;
+	u8 str[20] = {0};
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    delay_ms(10);
+    LED0_T;
 
+    if(SAMPLE_END_FLAG && i < 2000)
+    {
+//    	arm_fir_f32(&S,);
+    	sprintf((char*)str,"%5ld,%5ld\r\n",(s32)BUF[i]-0x8000,(s32)BUF[i++]-0x8000-50);
+    	HAL_UART_Transmit(&huart1, str, 13, 10);
+    }
+	//废操作，防止编译器又不给我分配地址
 	temp = (u8)WIFI;
 	temp = (u8)CH_SELECT;
 	temp = (u8)TG_SOURCE;
