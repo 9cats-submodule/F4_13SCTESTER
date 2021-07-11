@@ -37,7 +37,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NO_USE_UART1_IRQHander
+#define SAMPLE_BEGIN PAout(15)=0;
+#define SAMPLE_END   PAout(15)=1;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -57,18 +58,36 @@
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint16_t TP_PRES_TIME = 0;
-uint16_t Amplitude = 0;
-uint32_t ARR = 0;
-uint8_t TP_PRES_FACK = 0;
-uint8_t TP_PRES_EVET = 0;
-uint8_t n = 1;
-uint8_t rxbuf[4] = {0};
+
+
+//------------接收和发送BUF--------------
+#define CHANNEL_NUM 2   //通道数
+u8 rxbuf[CHANNEL_NUM][4] = {0};
+u8 txbuf[CHANNEL_NUM]    = {0};
+u16 RxData[CHANNEL_NUM]   = {0};
+//----------------------------------------
+
+//---------------标志-------------------
+u8 ADS8688_BUSY = 0;
+//---------------------------------------
+
+//---------------变量-------------------
+u8 CH = 0; //下次将要采样的通道|正在采样的通道
+
+//---------------------------------------
+
+//---------------DEBUG用-------------------
+float BUF[2000] = {0};
+u8  SAMPLE_END_FLAG = 0;
+//---------------------------------------
+
+
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern DMA_HandleTypeDef hdma_spi3_rx;
+extern DMA_HandleTypeDef hdma_spi3_tx;
 extern TIM_HandleTypeDef htim8;
-extern DMA_HandleTypeDef hdma_usart1_tx;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
@@ -214,6 +233,58 @@ void SysTick_Handler(void)
 /******************************************************************************/
 
 /**
+  * @brief This function handles DMA1 stream0 global interrupt.
+  */
+void DMA1_Stream0_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream0_IRQn 0 */
+  static u16 i = 0;
+  //------DMA传输结束
+  SAMPLE_END;    //拉高CS
+
+  /* USER CODE END DMA1_Stream0_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_spi3_rx);
+  /* USER CODE BEGIN DMA1_Stream0_IRQn 1 */
+
+  SAMPLE_BEGIN;  //重新拉低CS，ADS8688开始运输
+  //转换传输的数据类型，若没有被锁则可
+  if(CH == 0)
+  {
+    RxData[CH] = *(u16*)(&rxbuf[CH][2]);
+    if(i<2000) BUF[i++] = RxData[0];
+    else SAMPLE_END_FLAG = 1;
+  }
+  //切换通道
+  switch(CH)
+  {
+	  case 0/*通道1*/: CH = 1;break;
+	  case 1/*通道2*/: CH = 0;break;
+  }
+  //开启下一次扫描
+  switch(CH)
+  {
+	  case 0/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);break;
+	  case 1/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[1], 2);break;
+  }
+  //------DMA传输重新开始
+  /* USER CODE END DMA1_Stream0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 stream5 global interrupt.
+  */
+void DMA1_Stream5_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Stream5_IRQn 0 */
+
+  /* USER CODE END DMA1_Stream5_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_spi3_tx);
+  /* USER CODE BEGIN DMA1_Stream5_IRQn 1 */
+
+  /* USER CODE END DMA1_Stream5_IRQn 1 */
+}
+
+/**
   * @brief This function handles USART1 global interrupt.
   */
 void USART1_IRQHandler(void)
@@ -233,37 +304,20 @@ void USART1_IRQHandler(void)
 void TIM8_UP_TIM13_IRQHandler(void)
 {
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 0 */
-  uint8_t txbuf[2] = {0x00, 0x00};
+
   /* USER CODE END TIM8_UP_TIM13_IRQn 0 */
   HAL_TIM_IRQHandler(&htim8);
   /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 1 */
-  //hdac.Instance->DHR12R1 =
-  HAL_GPIO_WritePin(ADS8688_CS_GPIO_Port, ADS8688_CS_Pin, GPIO_PIN_RESET);
-  HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf, 2, 10);
-  if(!(rxbuf[0] == 0 && rxbuf[1] == 0 && rxbuf[2] == 0 && rxbuf[3] == 0)){
-	  rxbuf[0]=1;
+  if(!ADS8688_BUSY)
+  {
+    //SAMPLE_BEGIN;
+    //HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf[0], 2,200);
+    //SAMPLE_END;
+
+    //if(CH) HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[0], 2);
+    //else   HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[1], 2);
   }
-  HAL_GPIO_WritePin(ADS8688_CS_GPIO_Port, ADS8688_CS_Pin, GPIO_PIN_SET);
-  hdac.Instance->DHR12R1 = *(u16*)(&rxbuf[2]) / 16;
   /* USER CODE END TIM8_UP_TIM13_IRQn 1 */
-}
-
-/**
-  * @brief This function handles DMA2 stream7 global interrupt.
-  */
-void DMA2_Stream7_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA2_Stream7_IRQn 0 */
-  extern u8 sendStatus;
-  extern u8 Txing_pos;
-  extern Tx_STACK Tx_stack;
-  /* USER CODE END DMA2_Stream7_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_usart1_tx);
-  /* USER CODE BEGIN DMA2_Stream7_IRQn 1 */
-
-  if(sendStatus == 1) sendStatus = 2;
-  else if(sendStatus == 2) {sendStatus = 0;Tx_stack._state[Txing_pos]=3;};
-  /* USER CODE END DMA2_Stream7_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

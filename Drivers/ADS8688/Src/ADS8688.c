@@ -20,10 +20,10 @@ uint8_t ADS8688_Init(ADS8688 *ads, SPI_HandleTypeDef *spiHandle, GPIO_TypeDef *c
 	HAL_Delay(10);
 	// enable auto transmit for all inputs(datasheet page 54) or as many as you want
 	// if you want only some of the inputs enabled, make sure to power down the unused ones
-	ads_data[0] = 0x01;
+	ads_data[0] = 0x03;
 	state += ADS_Prog_Write(ads, AUTO_SEQ_EN, ads_data);
 	HAL_Delay(10);
-	ads_data[0] = 0xfe;
+	ads_data[0] = 0xfc;
 	state += ADS_Prog_Write(ads, CHN_PWRDN, ads_data);
 	HAL_Delay(10);
 	// set the desired features such as device id (if multiple devices are used), alarm enable/disable and output format

@@ -96,6 +96,10 @@ void Error_Handler(void);
 #define ADS8688_MISO_GPIO_Port GPIOC
 #define ADS8688_MOSI_Pin GPIO_PIN_12
 #define ADS8688_MOSI_GPIO_Port GPIOC
+#define ADS8688_GND_Pin GPIO_PIN_2
+#define ADS8688_GND_GPIO_Port GPIOD
+#define ADS8688_GNDD3_Pin GPIO_PIN_3
+#define ADS8688_GNDD3_GPIO_Port GPIOD
 #define IIC_SCL_Pin GPIO_PIN_8
 #define IIC_SCL_GPIO_Port GPIOB
 #define IIC_SDA_Pin GPIO_PIN_9
