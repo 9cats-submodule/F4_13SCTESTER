@@ -83,48 +83,42 @@ extern u8 rxbuf[2][4];
 extern u8 txbuf[2]   ;
 extern u16 rxdata[2]  ;
 
-//---------------------------------------------------------------------------------------------------------------
-#define AT(addr) __attribute__((section(addr)))
-uint32_t ADDR_START     AT(".ARM.__at_0X20008000")=0x0000f000;//默认储存开始地址，同时为变量起始地址
-//-----------------------------------------需要储存的数据--------------------------------------------------------
-uint8_t  WIFI           AT(".ARM.__at_0X20008004")=0;             //WIFI状态是否开启
-uint8_t  CH_SELECT      AT(".ARM.__at_0X20008005")=3;        //当前所选通道 0 1 2 3
-uint8_t  TG_SOURCE      AT(".ARM.__at_0X20008006")=0;        //触发源 1-CH1 2-CH2
-uint8_t  TG_MODE        AT(".ARM.__at_0X20008007")=1;          //触发模式 1-上升沿触发，2-下降沿触发，3-电平触发
-uint8_t  RUN            AT(".ARM.__at_0X20008008")=1;              //是否STOP
-uint8_t  AUTO           AT(".ARM.__at_0X20008009")=0;             //是否AUTO
-uint8_t  COUPE          AT(".ARM.__at_0X2000800a")=0;            //耦合方式 0-直流 1-交流
-int16_t  TG_VAL         AT(".ARM.__at_0X2000800b")=0;           //触发电平
-float VREF              AT(".ARM.__at_0X2000800d")=4.096f;         //ADS参考电压
-float VCC               AT(".ARM.__at_0X20008011")=3.300f;         //STM32参考电压
-float COMPENSATE        AT(".ARM.__at_0X20008015")=99.0f;    //频率补偿
-//--------------------------------------------------end------------------------------------------------------------
-uint32_t ADDR_END       AT(".ARM.__at_0X20008019")=0;//默认结束地址
-//-----------------------------------------------------------------------------------------------------------------
+const u32 SAVE_ADDR = 0x0000f000;
+SVAR Svar = {
+  /*u8  WIFI     ;    //WIFI状态是否开启                                                      */      0,
+  /*u8  CH_SELECT;    //当前所选通道 0 1 2 3                         */      3,
+  /*u8  TG_SOURCE;    //触发源 1-CH1 2-CH2                           */      0,
+  /*u8  TG_MODE;      //触发模式 1-上升沿触发，2-下降沿触发，3-电平触发*/      1,
+  /*u8  RUN;          //是否STOP                                     */      1,
+  /*u8  AUTO;         //是否AUTO                                     */      0,
+  /*u8  COUPE;        //耦合方式 0-直流 1-交流                       */      0,
+  /*u16 TG_VAL;       //触发电平                                     */      0,
+  /*float VREF;       //ADS参考电压                                                               */ 4.096f,
+  /*float VCC;        //STM32参考电压                                                           */ 3.300f,
+  /*float COMPENSATE; //频率补偿                                     */  99.0f
+};
 
 //数据保存操作
 //mode-0 写入默认  mode-1 读出 mode-2 数据检查并更新
 void DATA_OP(u8 mode)
 {
-	u8 *VAR_ADDR   = (u8*)&ADDR_START; //变量首地址
-	u32 FLASH_ADDR =       ADDR_START; //FLASH储存首地址
-	u8  data;
+  u8 *VAR_ADDR   = (u8*)&Svar; //变量地址
+  u32 FLASH_ADDR = SAVE_ADDR ; //FLASH储存首地址
+  u8  data;                    //暂存数据
+  u16 size;                    //当前已经储存大小
 
-	while(VAR_ADDR < (u8*)&ADDR_END)
+  for(size=0;size<sizeof(SVAR);size++,VAR_ADDR++,FLASH_ADDR++)
+  {
+	switch(mode)
 	{
-		switch(mode)
-		{
-		    case 0:W25QXX_Write(VAR_ADDR++,FLASH_ADDR++,1);break;
-		    case 1:W25QXX_Read (VAR_ADDR++,FLASH_ADDR++,1);break;
-		    case 2:
-		    {
-		      W25QXX_Read (&data,FLASH_ADDR,1);
-			  if(data != *VAR_ADDR)
-		      W25QXX_Write(VAR_ADDR++,FLASH_ADDR++,1);
-			  else{VAR_ADDR++;FLASH_ADDR++;}
-		    }break;
-		}
+	  case 0:W25QXX_Write(VAR_ADDR,FLASH_ADDR,1);break;
+	  case 1:W25QXX_Read (VAR_ADDR,FLASH_ADDR,1);break;
+	  case 2:{
+	      W25QXX_Read (&data,FLASH_ADDR,1);
+		  if(data != *VAR_ADDR) W25QXX_Write(VAR_ADDR,FLASH_ADDR,1);
+	  }
 	}
+  }
 }
 void DATA_INIT() {u8 key = KEY_Scan(0);if(key == KEY0_PRES) DATA_OP(0);else DATA_OP(1);}
 void DATA_UPDATE() {DATA_OP(2);}
@@ -137,7 +131,7 @@ void DATA_UPDATE() {DATA_OP(2);}
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+  u16 i=0;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -184,10 +178,7 @@ int main(void)
   HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);
   delay_ms(100);
   //时耗
-
   DATA_INIT();
-
-
 //  HAL_TIM_Base_Start_IT(&htim8);
   delay_ms(100);
   delay_ms(100);
@@ -198,8 +189,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	u8 temp;
-	static u16 i=0;
 	u8 str[20] = {0};
     /* USER CODE END WHILE */
 
@@ -210,21 +199,11 @@ int main(void)
     if(SAMPLE_END_FLAG && i < 2000)
     {
 //    	arm_fir_f32(&S,);
-    	sprintf((char*)str,"%5ld,%5ld\r\n",(s32)BUF[i]-0x8000,(s32)BUF[i++]-0x8000-50);
+    	sprintf((char*)str,"%5ld,%5ld\r\n",(s32)BUF[i]-0x8000,(s32)BUF[i]-0x8000-50);
+    	i++;
     	HAL_UART_Transmit(&huart1, str, 13, 10);
     }
-	//废操作，防止编译器又不给我分配地址
-	temp = (u8)WIFI;
-	temp = (u8)CH_SELECT;
-	temp = (u8)TG_SOURCE;
-	temp = (u8)TG_MODE;
-	temp = (u8)TG_VAL;
-	temp = (u8)RUN;
-	temp = (u8)AUTO;
-	temp = (u8)COUPE;
-	temp = (u8)VREF;
-	temp = (u8)VCC;
-	temp = (u8)COMPENSATE;
+	DATA_UPDATE();
   }
   /* USER CODE END 3 */
 }

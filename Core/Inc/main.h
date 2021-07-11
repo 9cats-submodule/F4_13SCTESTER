@@ -32,11 +32,36 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "base.h"
 
+#define u32 uint32_t
+#define u16 uint16_t
+#define u8 uint8_t
+#define s32 int32_t
+#define s16 int16_t
+#define s8 int8_t
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+#pragma pack(push)
+#pragma pack(1)	//按字节对齐
+typedef struct _SVAR
+{
+  u8  WIFI     ;   //WIFI状态是否开启
+  u8  CH_SELECT;   //当前所选通道 0 1 2 3
+  u8  TG_SOURCE;   //触发源 1-CH1 2-CH2
+  u8  TG_MODE;     //触发模式 1-上升沿触发，2-下降沿触发，3-电平触发
+  u8  RUN;         //是否STOP
+  u8  AUTO;        //是否AUTO
+  u8  COUPE;       //耦合方式 0-直流 1-交流
+  u16 TG_VAL;      //触发电平
+  float VREF;      //ADS参考电压
+  float VCC;       //STM32参考电压
+  float COMPENSATE;//频率补偿
+}SVAR;
+#pragma pack(pop)
+extern SVAR Svar;
 
 /* USER CODE END ET */
 
