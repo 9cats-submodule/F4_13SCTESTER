@@ -37,8 +37,10 @@
 #include "hmi_user_uart.h"
 #include "hmi_driver.h"
 #include "ADS8688.h"
+#include "AD9959.h"
 #include "stdio.h"
 #include "arm_math.h"
+#include "arm_const_structs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -73,11 +75,9 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 //---------------------------------DEBUG--------------------------------
-arm_fir_instance_f32 S;
+#define SAMPLE_POINT 2048 //采样点数
 extern u8  SAMPLE_END_FLAG;
-extern float BUF[2000];
-float FIR_BUF[2000];
-float FIR_STA[2000];
+extern u16 BUF[];
 
 extern u8 rxbuf[2][4];
 extern u8 txbuf[2]   ;
@@ -122,6 +122,7 @@ void DATA_OP(u8 mode)
 }
 void DATA_INIT() {u8 key = KEY_Scan(0);if(key == KEY0_PRES) DATA_OP(0);else DATA_OP(1);}
 void DATA_UPDATE() {DATA_OP(2);}
+
 /* USER CODE END 0 */
 
 /**
@@ -167,21 +168,32 @@ int main(void)
   font_init();
   tp_dev.init();
   TFT_Init();
-  ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
   HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
-  arm_fir_init_f32(&S,33,BUF,FIR_STA,2000);
+//  arm_fir_init_f32(&S,33,BUF,FIR_STA,2000);
 
 
+
+  //时耗
+  //  HAL_TIM_Base_Start_IT(&htim8);
+  ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
+  Init_AD9959();
+  DATA_INIT();
+
+  //DDS输出 -- CH3输出
+  Out_freq(2, 1000);
+  Out_mV(2, 100);
+
+
+
+  //ADS8688自动通信
   delay_ms(100);
-
   SAMPLE_BEGIN;
   HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);
   delay_ms(100);
-  //时耗
-  DATA_INIT();
-//  HAL_TIM_Base_Start_IT(&htim8);
-  delay_ms(100);
-  delay_ms(100);
+
+
+
+
 
   /* USER CODE END 2 */
 
@@ -196,12 +208,12 @@ int main(void)
     delay_ms(10);
     LED0_T;
 
-    if(SAMPLE_END_FLAG && i < 2000)
+    if(SAMPLE_END_FLAG && i < 2048)
     {
-//    	arm_fir_f32(&S,);
-    	sprintf((char*)str,"%5ld,%5ld\r\n",(s32)BUF[i]-0x8000,(s32)BUF[i]-0x8000-50);
+    	if(i==0) FFT();
+    	sprintf((char*)str,"%5ld\r\n",(s32)FFT_OUTPUT[i]);
     	i++;
-    	HAL_UART_Transmit(&huart1, str, 13, 10);
+    	HAL_UART_Transmit(&huart1, str, 7, 10);
     }
 	DATA_UPDATE();
   }
