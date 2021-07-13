@@ -28,6 +28,7 @@
 #include "hmi_user_uart.h"
 #include "dac.h"
 #include "spi.h"
+#include "ADS8688.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,10 +62,10 @@
 
 
 //------------接收和发送BUF--------------
-#define CHANNEL_NUM 2   //通道数
-u8 rxbuf[CHANNEL_NUM][4] = {0};
-u8 txbuf[CHANNEL_NUM]    = {0};
-u16 RxData[CHANNEL_NUM]   = {0};
+#define CHANNEL_NUM 5   //最大通道数
+u8  rxbuf [CHANNEL_NUM][4] = {0};
+u8  txbuf [CHANNEL_NUM]    = {0};
+u16 RxData[CHANNEL_NUM]    = {0};
 //----------------------------------------
 
 //---------------标志-------------------
@@ -72,8 +73,9 @@ u8 ADS8688_BUSY = 0;
 //---------------------------------------
 
 //---------------变量-------------------
-u8 CH = 0; //下次将要采样的通道|正在采样的通道
-
+u8 CH = 0;               //下次将要采样的通道|正在采样的通道
+u8 CH_SELECT = 0;        //当前正在正在使用的通道
+u8 CH_NUM    = 0;        //当前通道数
 //---------------------------------------
 
 //---------------DEBUG用-------------------
@@ -246,11 +248,14 @@ void DMA1_Stream0_IRQHandler(void)
   HAL_DMA_IRQHandler(&hdma_spi3_rx);
   /* USER CODE BEGIN DMA1_Stream0_IRQn 1 */
   //切换通道
-  switch(CH)
-  {
-    case 0/*通道1*/: CH = 1;break;
-    case 1/*通道2*/: CH = 0;break;
-  }
+  //  switch(CH)
+  //  {
+  //    case 0/*通道1*/: CH = 1;break;
+  //    case 1/*通道2*/: CH = 2;break;
+  //    case 2/*通道3*/: CH = 3;break;
+  //    case 3/*通道4*/: CH = 4;break;
+  //    case 4/*通道5*/: CH = 0;break;
+  //  }
   SAMPLE_END;    //拉高CS
   /* USER CODE END DMA1_Stream0_IRQn 1 */
 }
@@ -284,24 +289,67 @@ void TIM3_IRQHandler(void)
     //开启下一次扫描
     ADS8688_BUSY = 1;
     SAMPLE_BEGIN;  //重新拉低CS，ADS8688开始运输
+    if(i == 0)
+    {
+  	  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[CH], 2);
+  	  i++;
+    }
+    if(i<2025 && i)
+    {
+      RxData[CH] = *(u16*)(&rxbuf[CH][2]);
+      BUF[CH][i-1] = RxData[CH];
+	  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[CH], 2);
+	  i++;
+    }
+    if(i==2025)
+    {
+      if(CH==4)
+      {
+      	SAMPLE_END_FLAG=1;
+      }
+      else
+      {
+    	i=0;
+    	CH++;
+    	if(CH == 1) Init_ADS8688(0x02);
+    	if(CH == 2) Init_ADS8688(0x04);
+    	if(CH == 3) Init_ADS8688(0x10);
+    	if(CH == 4) Init_ADS8688(0x20);
+      }
+    }
     //CH -> 将要扫描的通道
-    switch(CH)
-    {
-      case 0/*通道N已采完*/:  {
-    	  RxData[1] = *(u16*)(&rxbuf[1][2]);
-    	  BUF[1][i] = RxData[1];
-      }break;
-      case 1/*通道1已采完*/: {
-      	RxData[0] = *(u16*)(&rxbuf[0][2]);
-      	if(i<SAMPLE_POINT) BUF[0][i++] = RxData[0];
-      	else SAMPLE_END_FLAG=1;
-      }break;
-    }
-    switch(CH)
-    {
-  	  case 0/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);break;
-  	  case 1/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[1], 2);break;
-    }
+    //    switch(CH)
+    //    {
+    //      case 0/*通道N已采完*/:  {
+    //    	  RxData[4] = *(u16*)(&rxbuf[4][2]);
+    //    	  BUF[1][i] = RxData[1];
+    //      }break;
+    //      case 1/*通道1已采完*/: {
+    //      	RxData[0] = *(u16*)(&rxbuf[0][2]);
+    //      	if(i<SAMPLE_POINT) BUF[0][i++] = RxData[0];
+    //      	else SAMPLE_END_FLAG=1;
+    //      }break;
+    //      case 2/*通道2已采完*/:
+    //      {
+    //        RxData[1] = *(u16*)(&rxbuf[1][2]);
+    //      }
+    //      case 3/*通道3已采完*/:
+    //      {
+    //        RxData[2] = *(u16*)(&rxbuf[2][2]);
+    //      }
+    //      case 4/*通道5已采完*/:
+    //      {
+    //        RxData[3] = *(u16*)(&rxbuf[3][2]);
+    //      }
+    //    }
+    //    switch(CH)
+    //    {
+    //  	  case 0/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);break;
+    //  	  case 1/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[1], 2);break;
+    //  	  case 2/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[2], 2);break;
+    //  	  case 3/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[3], 2);break;
+    //  	  case 4/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[4], 2);break;
+    //    }
     //------DMA传输重新开始
   }
   else

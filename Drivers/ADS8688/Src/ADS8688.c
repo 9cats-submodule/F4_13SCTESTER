@@ -1,9 +1,53 @@
 #include "ADS8688.h"
+#include "main.h"
+#include "spi.h"
 
 ADS8688 ads8688;
 /*
  * INITIALISATION
  */
+uint8_t Init_ADS8688(uint8_t channel)
+{
+	/* Store interface parameters in struct */
+	ADS8688* ads;
+	ads = &ads8688;
+	ads->spiHandle 		= &hspi3;
+	ads->csPinBank 	= ADS8688_CS_GPIO_Port;
+	ads->csPin 		= ADS8688_CS_Pin;
+
+    uint8_t ads_data[2] = {0};
+    uint8_t state = 0;
+    // reset all registers to default
+    state += ADS_Cmd_Write(ads, RST, ads_data);
+    // send a no_op message to the ADS to enter IDLE mode
+    state += ADS_Cmd_Write(ads, CONT, ads_data);
+    // enable auto transmit for all inputs(datasheet page 54) or as many as you want
+    // if you want only some of the inputs enabled, make sure to power down the unused ones
+    ads_data[0] = channel; // 0011 0111
+    state += ADS_Prog_Write(ads, AUTO_SEQ_EN, ads_data);
+    ads_data[0] = channel^0xff; // 1100 1000
+    state += ADS_Prog_Write(ads, CHN_PWRDN, ads_data);
+    // set the desired features such as device id (if multiple devices are used), alarm enable/disable and output format
+    ads_data[0] = 0x03; // here i chose id = 0, alarm = disabled and SDO_format = 3 (datasheet page 56)
+    state += ADS_Prog_Write(ads, FEATURE_SELECT, ads_data);
+    // set all channels ranges(page 57)
+    // 0x05 -> Input range is set to 0 to 2.5 x VREF (for VREF=5 volts, this means 0-10 volts range)
+    // 0x06 -> Input range is set to 0 to 1.25 x VREF (for VREF=5 volts, this means 0-5 volts range)
+    ads_data[0] = 0x00;
+    if(channel & (0x01<<0)) state += ADS_Prog_Write(ads, CHN_0_RANGE, ads_data);
+    if(channel & (0x01<<1)) state += ADS_Prog_Write(ads, CHN_1_RANGE, ads_data);
+    if(channel & (0x01<<2)) state += ADS_Prog_Write(ads, CHN_2_RANGE, ads_data);
+    if(channel & (0x01<<3)) state += ADS_Prog_Write(ads, CHN_3_RANGE, ads_data);
+    if(channel & (0x01<<4)) state += ADS_Prog_Write(ads, CHN_4_RANGE, ads_data);
+    if(channel & (0x01<<5)) state += ADS_Prog_Write(ads, CHN_5_RANGE, ads_data);
+    if(channel & (0x01<<6)) state += ADS_Prog_Write(ads, CHN_6_RANGE, ads_data);
+    if(channel & (0x01<<7)) state += ADS_Prog_Write(ads, CHN_7_RANGE, ads_data);
+    // start the auto transmission by entering the appropriate state
+    state += ADS_Cmd_Write(ads, AUTO_RST, ads_data);
+
+    return state;
+}
+
 uint8_t ADS8688_Init(ADS8688 *ads, SPI_HandleTypeDef *spiHandle, GPIO_TypeDef *csPinBank, uint16_t csPin) {
 /* Store interface parameters in struct */
 	ads->spiHandle 		= spiHandle;
@@ -14,31 +58,30 @@ uint8_t ADS8688_Init(ADS8688 *ads, SPI_HandleTypeDef *spiHandle, GPIO_TypeDef *c
 	uint8_t state = 0;
 	// reset all registers to default
 	state += ADS_Cmd_Write(ads, RST, ads_data);
-	HAL_Delay(100);
 	// send a no_op message to the ADS to enter IDLE mode
 	state += ADS_Cmd_Write(ads, CONT, ads_data);
-	HAL_Delay(10);
 	// enable auto transmit for all inputs(datasheet page 54) or as many as you want
 	// if you want only some of the inputs enabled, make sure to power down the unused ones
-	ads_data[0] = 0x03;
+	ads_data[0] = 0x37; // 0011 0111
 	state += ADS_Prog_Write(ads, AUTO_SEQ_EN, ads_data);
-	HAL_Delay(10);
-	ads_data[0] = 0xfc;
+	ads_data[0] = 0xc8; // 1100 1000
 	state += ADS_Prog_Write(ads, CHN_PWRDN, ads_data);
-	HAL_Delay(10);
 	// set the desired features such as device id (if multiple devices are used), alarm enable/disable and output format
 	ads_data[0] = 0x03; // here i chose id = 0, alarm = disabled and SDO_format = 3 (datasheet page 56)
 	state += ADS_Prog_Write(ads, FEATURE_SELECT, ads_data);
-	HAL_Delay(10);
 	// set all channels ranges(page 57)
 	// 0x05 -> Input range is set to 0 to 2.5 x VREF (for VREF=5 volts, this means 0-10 volts range)
 	// 0x06 -> Input range is set to 0 to 1.25 x VREF (for VREF=5 volts, this means 0-5 volts range)
 	ads_data[0] = 0x00;
 	state += ADS_Prog_Write(ads, CHN_0_RANGE, ads_data);
-	HAL_Delay(10);
 	ads_data[0] = 0x00;
 	state += ADS_Prog_Write(ads, CHN_1_RANGE, ads_data);
-	HAL_Delay(10);
+	ads_data[0] = 0x00;
+	state += ADS_Prog_Write(ads, CHN_2_RANGE, ads_data);
+	ads_data[0] = 0x00;
+	state += ADS_Prog_Write(ads, CHN_4_RANGE, ads_data);
+	ads_data[0] = 0x00;
+	state += ADS_Prog_Write(ads, CHN_5_RANGE, ads_data);
 	// start the auto transmission by entering the appropriate state
 	state += ADS_Cmd_Write(ads, AUTO_RST, ads_data);
 

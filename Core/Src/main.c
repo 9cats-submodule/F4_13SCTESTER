@@ -85,9 +85,7 @@ float FFT_OUTPUT[SAMPLE_POINT];
 float FFT_OUTPUT_REAL[SAMPLE_POINT];
 float WAVE[SAMPLE_POINT];
 
-extern u8 rxbuf[2][4];
-extern u8 txbuf[2]   ;
-extern u16 rxdata[2]  ;
+extern u16 RxData[CHANNEL_NUM];
 
 const u32 SAVE_ADDR = 0x0000f000;
 SVAR Svar = {
@@ -189,7 +187,8 @@ int main(void)
   tp_dev.init();
   TFT_Init();
   DATA_INIT();
-  ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
+//  Init_ADS8688(0x37);
+  Init_ADS8688(0x01);
   Init_AD9959();
 
   //时耗
@@ -197,6 +196,17 @@ int main(void)
   Out_freq(2, 1000);
   Out_mV(2, 300);
   HAL_TIM_Base_Start_IT(&htim3);
+
+
+
+// 续点器驱动
+//  while(1)
+//  {
+//  HAL_Delay(1000);
+//  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_RESET);
+//  HAL_Delay(1000);
+//  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_SET);
+//  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -204,28 +214,52 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+    u8 str[20];
     /* USER CODE BEGIN 3 */
     LED0_T;
+    HAL_Delay(20);
+//    sprintf((char*)str,"%.3f",((s32)RxData[0]-0x8000)*20.48f/0x10000);
+//    SetTextValue(0,41,str);
+//    sprintf((char*)str,"%.3f",((s32)RxData[1]-0x8000)*20.48f/0x10000);
+//    SetTextValue(0,42,str);
+//    sprintf((char*)str,"%.3f",((s32)RxData[2]-0x8000)*20.48f/0x10000);
+//    SetTextValue(0,43,str);
+//    sprintf((char*)str,"%.3f",((s32)RxData[3]-0x8000)*20.48f/0x10000);
+//    SetTextValue(0,44,str);
+//    sprintf((char*)str,"%.3f",((s32)RxData[4]-0x8000)*20.48f/0x10000);
+//    SetTextValue(0,45,str);
 
-    if(i < SAMPLE_POINT)
+    if(SAMPLE_END_FLAG && i < SAMPLE_POINT)
     {
+      OutData[0] = ((s32)BUF[0][i]-0x8000);
+      OutData[1] = ((s32)BUF[1][i]-0x8000);
+      OutData[2] = ((s32)BUF[2][i]-0x8000);
+      OutData[3] = ((s32)BUF[4][i]-0x8000);
+      OutPut_Data();
+      i++;
+    }
+    if(i == SAMPLE_POINT)
+    {
+      OutPut_Data();
+    }
+//    if(i < SAMPLE_POINT)
+//    {
 //    	if(i==0) FFT();
 //    	OutData[0] = WAVE[i];
 //    	OutData[1] = FFT_INPUT[i];
 //    	OutData[2] = FFT_OUTPUT[i];
 //    	OutData[3] = -FFT_OUTPUT_REAL[i];
-    	OutData[0] = (float)((s32)BUF[0][i]-0x8000);
-    	OutData[1] = (float)((s32)BUF[1][i]-0x8000);
-    	OutPut_Data();
-    	i++;
-    }
-    if(i == SAMPLE_POINT)
-    {
-    	OutPut_Data();
-    	i++;
-    }
-//    DATA_UPDATE();
+//    	OutData[0] = (float)((s32)BUF[0][i]-0x8000);
+//    	OutData[1] = (float)((s32)BUF[1][i]-0x8000);
+//    	OutPut_Data();
+//    	i++;
+//    }
+//    if(i == SAMPLE_POINT)
+//    {
+//    	OutPut_Data();
+//    	i++;
+//    }
+    DATA_UPDATE();
   }
   /* USER CODE END 3 */
 }

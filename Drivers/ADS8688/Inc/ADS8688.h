@@ -65,6 +65,7 @@ extern ADS8688 ads8688;
  * INITIALISATION
  *
  */
+uint8_t Init_ADS8688(uint8_t channel);
 uint8_t ADS8688_Init(ADS8688 *ads, SPI_HandleTypeDef *spiHandle, GPIO_TypeDef *csPinBank, uint16_t csPin);
 
 /*

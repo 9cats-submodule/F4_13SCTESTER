@@ -89,6 +89,8 @@ void Error_Handler(void);
 #define KEY1_GPIO_Port GPIOE
 #define KEY2_Pin GPIO_PIN_4
 #define KEY2_GPIO_Port GPIOE
+#define RELAY_IN_Pin GPIO_PIN_5
+#define RELAY_IN_GPIO_Port GPIOE
 #define TCS_Pin GPIO_PIN_13
 #define TCS_GPIO_Port GPIOC
 #define LED0_Pin GPIO_PIN_8
