@@ -39,6 +39,7 @@
 #include "ADS8688.h"
 #include "AD9959.h"
 #include "stdio.h"
+#include "output.h"
 #include "arm_math.h"
 #include "arm_const_structs.h"
 /* USER CODE END Includes */
@@ -75,9 +76,14 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 //---------------------------------DEBUG--------------------------------
+#define CHANNEL_NUM 2   //通道数
 #define SAMPLE_POINT 2048 //采样点数
 extern u8  SAMPLE_END_FLAG;
-extern u16 BUF[];
+extern u16 BUF[CHANNEL_NUM][SAMPLE_POINT];
+float FFT_INPUT [SAMPLE_POINT];
+float FFT_OUTPUT[SAMPLE_POINT];
+float FFT_OUTPUT_REAL[SAMPLE_POINT];
+float WAVE[SAMPLE_POINT];
 
 extern u8 rxbuf[2][4];
 extern u8 txbuf[2]   ;
@@ -123,6 +129,20 @@ void DATA_OP(u8 mode)
 void DATA_INIT() {u8 key = KEY_Scan(0);if(key == KEY0_PRES) DATA_OP(0);else DATA_OP(1);}
 void DATA_UPDATE() {DATA_OP(2);}
 
+void FFT(void)
+{
+	u16 i;
+	arm_rfft_fast_instance_f32 S;
+
+	for(i=0;i<SAMPLE_POINT;i++)
+	{
+		WAVE[i]       = (arm_sin_f32(3.1415926f*1*i/SAMPLE_POINT) - 0 )*1000+500;
+		FFT_INPUT[i]  = (arm_sin_f32(3.1415926f*1*i/SAMPLE_POINT) - 0 )*1000+500;
+	}
+	arm_rfft_fast_init_f32(&S,SAMPLE_POINT);
+	arm_rfft_fast_f32(&S, FFT_INPUT, FFT_OUTPUT,0);
+	arm_cmplx_mag_f32(FFT_OUTPUT,FFT_OUTPUT_REAL,SAMPLE_POINT);
+}
 /* USER CODE END 0 */
 
 /**
@@ -159,7 +179,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI3_Init();
   MX_DAC_Init();
-  MX_TIM8_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   //无时耗
   delay_init(168);
@@ -168,54 +188,44 @@ int main(void)
   font_init();
   tp_dev.init();
   TFT_Init();
-  HAL_DAC_Start(&hdac,DAC1_CHANNEL_1);
-//  arm_fir_init_f32(&S,33,BUF,FIR_STA,2000);
-
-
-
-  //时耗
-  //  HAL_TIM_Base_Start_IT(&htim8);
+  DATA_INIT();
   ADS8688_Init(&ads8688, &hspi3, ADS8688_CS_GPIO_Port, ADS8688_CS_Pin);
   Init_AD9959();
-  DATA_INIT();
 
+  //时耗
   //DDS输出 -- CH3输出
   Out_freq(2, 1000);
-  Out_mV(2, 100);
-
-
-
-  //ADS8688自动通信
-  delay_ms(100);
-  SAMPLE_BEGIN;
-  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);
-  delay_ms(100);
-
-
-
-
-
+  Out_mV(2, 300);
+  HAL_TIM_Base_Start_IT(&htim3);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	u8 str[20] = {0};
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    delay_ms(10);
     LED0_T;
 
-    if(SAMPLE_END_FLAG && i < 2048)
+    if(i < SAMPLE_POINT)
     {
-    	if(i==0) FFT();
-    	sprintf((char*)str,"%5ld\r\n",(s32)FFT_OUTPUT[i]);
+//    	if(i==0) FFT();
+//    	OutData[0] = WAVE[i];
+//    	OutData[1] = FFT_INPUT[i];
+//    	OutData[2] = FFT_OUTPUT[i];
+//    	OutData[3] = -FFT_OUTPUT_REAL[i];
+    	OutData[0] = (float)((s32)BUF[0][i]-0x8000);
+    	OutData[1] = (float)((s32)BUF[1][i]-0x8000);
+    	OutPut_Data();
     	i++;
-    	HAL_UART_Transmit(&huart1, str, 7, 10);
     }
-	DATA_UPDATE();
+    if(i == SAMPLE_POINT)
+    {
+    	OutPut_Data();
+    	i++;
+    }
+//    DATA_UPDATE();
   }
   /* USER CODE END 3 */
 }

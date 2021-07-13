@@ -77,7 +77,8 @@ u8 CH = 0; //下次将要采样的通道|正在采样的通道
 //---------------------------------------
 
 //---------------DEBUG用-------------------
-float BUF[2000] = {0};
+#define SAMPLE_POINT 2048 //采样点数
+u16 BUF[CHANNEL_NUM][SAMPLE_POINT] = {0};
 u8  SAMPLE_END_FLAG = 0;
 //---------------------------------------
 
@@ -87,7 +88,7 @@ u8  SAMPLE_END_FLAG = 0;
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_spi3_rx;
 extern DMA_HandleTypeDef hdma_spi3_tx;
-extern TIM_HandleTypeDef htim8;
+extern TIM_HandleTypeDef htim3;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
@@ -238,35 +239,19 @@ void SysTick_Handler(void)
 void DMA1_Stream0_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Stream0_IRQn 0 */
-  static u16 i = 0;
   //------DMA传输结束
-  SAMPLE_END;    //拉高CS
+  ADS8688_BUSY = 0;
 
   /* USER CODE END DMA1_Stream0_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_spi3_rx);
   /* USER CODE BEGIN DMA1_Stream0_IRQn 1 */
-
-  SAMPLE_BEGIN;  //重新拉低CS，ADS8688开始运输
-  //转换传输的数据类型，若没有被锁则可
-  if(CH == 0)
-  {
-    RxData[CH] = *(u16*)(&rxbuf[CH][2]);
-    if(i<2000) BUF[i++] = RxData[0];
-    else SAMPLE_END_FLAG = 1;
-  }
   //切换通道
   switch(CH)
   {
-	  case 0/*通道1*/: CH = 1;break;
-	  case 1/*通道2*/: CH = 0;break;
+    case 0/*通道1*/: CH = 1;break;
+    case 1/*通道2*/: CH = 0;break;
   }
-  //开启下一次扫描
-  switch(CH)
-  {
-	  case 0/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);break;
-	  case 1/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[1], 2);break;
-  }
-  //------DMA传输重新开始
+  SAMPLE_END;    //拉高CS
   /* USER CODE END DMA1_Stream0_IRQn 1 */
 }
 
@@ -285,6 +270,48 @@ void DMA1_Stream5_IRQHandler(void)
 }
 
 /**
+  * @brief This function handles TIM3 global interrupt.
+  */
+void TIM3_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM3_IRQn 0 */
+  static u16 i=0;
+  /* USER CODE END TIM3_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim3);
+  /* USER CODE BEGIN TIM3_IRQn 1 */
+  if(!ADS8688_BUSY)
+  {
+    //开启下一次扫描
+    ADS8688_BUSY = 1;
+    SAMPLE_BEGIN;  //重新拉低CS，ADS8688开始运输
+    //CH -> 将要扫描的通道
+    switch(CH)
+    {
+      case 0/*通道N已采完*/:  {
+    	  RxData[1] = *(u16*)(&rxbuf[1][2]);
+    	  BUF[1][i] = RxData[1];
+      }break;
+      case 1/*通道1已采完*/: {
+      	RxData[0] = *(u16*)(&rxbuf[0][2]);
+      	if(i<SAMPLE_POINT) BUF[0][i++] = RxData[0];
+      	else SAMPLE_END_FLAG=1;
+      }break;
+    }
+    switch(CH)
+    {
+  	  case 0/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);break;
+  	  case 1/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[1], 2);break;
+    }
+    //------DMA传输重新开始
+  }
+  else
+  {
+    ADS8688_BUSY = ADS8688_BUSY;
+  }
+  /* USER CODE END TIM3_IRQn 1 */
+}
+
+/**
   * @brief This function handles USART1 global interrupt.
   */
 void USART1_IRQHandler(void)
@@ -296,28 +323,6 @@ void USART1_IRQHandler(void)
   /* USER CODE BEGIN USART1_IRQn 1 */
 	
   /* USER CODE END USART1_IRQn 1 */
-}
-
-/**
-  * @brief This function handles TIM8 update interrupt and TIM13 global interrupt.
-  */
-void TIM8_UP_TIM13_IRQHandler(void)
-{
-  /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 0 */
-
-  /* USER CODE END TIM8_UP_TIM13_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim8);
-  /* USER CODE BEGIN TIM8_UP_TIM13_IRQn 1 */
-  if(!ADS8688_BUSY)
-  {
-    //SAMPLE_BEGIN;
-    //HAL_SPI_TransmitReceive(&hspi3, txbuf, rxbuf[0], 2,200);
-    //SAMPLE_END;
-
-    //if(CH) HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[0], 2);
-    //else   HAL_SPI_TransmitReceive_IT(&hspi3, txbuf, rxbuf[1], 2);
-  }
-  /* USER CODE END TIM8_UP_TIM13_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */

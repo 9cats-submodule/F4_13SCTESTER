@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER,STM32F407xx</Define>
               <Undefine></Undefine>
-              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Drivers/F4_LCD_Driver/Inc;../Drivers/F4_TOUCH_Driver/Inc;../Drivers/F4_W24Q128_Driver/Inc;../Drivers/TFT_Driver/Inc</IncludePath>
+              <IncludePath>../Core/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc;../Drivers/STM32F4xx_HAL_Driver/Inc/Legacy;../Drivers/CMSIS/Device/ST/STM32F4xx/Include;../Drivers/CMSIS/Include;../Drivers/F4_LCD_Driver/Inc;../Drivers/F4_TOUCH_Driver/Inc;../Drivers/F4_W24Q128_Driver/Inc;../Drivers/TFT_Driver/Inc;../Drivers/ADS8688/Inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -785,6 +785,16 @@
               <FileName>cmd_process.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Drivers\TFT_Driver\Src\cmd_process.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Drivers/ADS8688</GroupName>
+          <Files>
+            <File>
+              <FileName>ADS8688.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Drivers\ADS8688\Src\ADS8688.c</FilePath>
             </File>
           </Files>
         </Group>
