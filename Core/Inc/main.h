@@ -59,6 +59,7 @@ typedef struct _SVAR
   float VREF;      //ADS参考电压
   float VCC;       //STM32参考电压
   float COMPENSATE;//频率补偿
+  float CH1_COMPENSATE; //CH1补偿
 }SVAR;
 #pragma pack(pop)
 extern SVAR Svar;

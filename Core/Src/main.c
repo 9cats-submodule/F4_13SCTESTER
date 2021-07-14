@@ -76,17 +76,32 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 //---------------------------------DEBUG--------------------------------
-#define CHANNEL_NUM 2   //通道数
-#define SAMPLE_POINT 2048 //采样点数
+#define TFT
+//#define VSOC
+
+#define SAMPLE_POINT_MAX 2048 //采样点数
 extern u8  SAMPLE_END_FLAG;
-extern u16 BUF[CHANNEL_NUM][SAMPLE_POINT];
-float FFT_INPUT [SAMPLE_POINT];
-float FFT_OUTPUT[SAMPLE_POINT];
-float FFT_OUTPUT_REAL[SAMPLE_POINT];
-float WAVE[SAMPLE_POINT];
+float FFT_INPUT [SAMPLE_POINT_MAX];
+float FFT_OUTPUT[SAMPLE_POINT_MAX];
+float FFT_OUTPUT_REAL[SAMPLE_POINT_MAX];
+float WAVE[SAMPLE_POINT_MAX];
 
-extern u16 RxData[CHANNEL_NUM];
+float freq = 1000.0f,L_freq = 1000.0f;
+float mv   =300.0f,L_mv = 300.0f;
 
+extern u16 RxData[];
+
+//-----------------------------标志---------------------------------------
+extern u8 SAMPLE_END_FLAG;    //采样结束标记
+//------------------------------------------------------------------------
+
+//-----------------------------变量---------------------------------------
+extern u16 SAMPLE_POINT;       //将要采样的点数
+extern s32 BUF[SAMPLE_POINT_MAX];
+float CH_VPP_VALUE[SAMPLE_POINT_MAX] = {0};
+//------------------------------------------------------------------------
+
+//----------------------------可储存变量------------------------------------------
 const u32 SAVE_ADDR = 0x0000f000;
 SVAR Svar = {
   /*u8  WIFI     ;    //WIFI状态是否开启                                                      */      0,
@@ -99,7 +114,8 @@ SVAR Svar = {
   /*u16 TG_VAL;       //触发电平                                     */      0,
   /*float VREF;       //ADS参考电压                                                               */ 4.096f,
   /*float VCC;        //STM32参考电压                                                           */ 3.300f,
-  /*float COMPENSATE; //频率补偿                                     */  99.0f
+  /*float COMPENSATE; //频率补偿                                     */  99.0f,
+  /*float CH1_COMPENSATE; //CH1补偿                                                              */ 909.09090909f
 };
 
 //数据保存操作
@@ -132,14 +148,17 @@ void FFT(void)
 	u16 i;
 	arm_rfft_fast_instance_f32 S;
 
-	for(i=0;i<SAMPLE_POINT;i++)
+	for(i=0;i<2048;i++)
 	{
-		WAVE[i]       = (arm_sin_f32(3.1415926f*1*i/SAMPLE_POINT) - 0 )*1000+500;
-		FFT_INPUT[i]  = (arm_sin_f32(3.1415926f*1*i/SAMPLE_POINT) - 0 )*1000+500;
+		FFT_INPUT[i]  = (float)BUF[i]*20.48/0x10000;
 	}
-	arm_rfft_fast_init_f32(&S,SAMPLE_POINT);
-	arm_rfft_fast_f32(&S, FFT_INPUT, FFT_OUTPUT,0);
-	arm_cmplx_mag_f32(FFT_OUTPUT,FFT_OUTPUT_REAL,SAMPLE_POINT);
+	arm_rfft_fast_init_f32(&S,2048);                    //FFT初始化
+	arm_rfft_fast_f32(&S, FFT_INPUT, FFT_OUTPUT,0);     //FFT变化
+	arm_cmplx_mag_f32(FFT_OUTPUT,FFT_OUTPUT_REAL,2048); //求模
+}
+
+void SCAN(void)
+{
 }
 /* USER CODE END 0 */
 
@@ -150,7 +169,7 @@ void FFT(void)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  u16 i=0;
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -177,7 +196,7 @@ int main(void)
   MX_USART1_UART_Init();
   MX_SPI3_Init();
   MX_DAC_Init();
-  MX_TIM3_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   //无时耗
   delay_init(168);
@@ -195,7 +214,6 @@ int main(void)
   //DDS输出 -- CH3输出
   Out_freq(2, 1000);
   Out_mV(2, 300);
-  HAL_TIM_Base_Start_IT(&htim3);
 
 
 
@@ -213,53 +231,189 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	u16 i=0;
+	u8 str[20];
     /* USER CODE END WHILE */
-    u8 str[20];
-    /* USER CODE BEGIN 3 */
-    LED0_T;
-    HAL_Delay(20);
-//    sprintf((char*)str,"%.3f",((s32)RxData[0]-0x8000)*20.48f/0x10000);
-//    SetTextValue(0,41,str);
-//    sprintf((char*)str,"%.3f",((s32)RxData[1]-0x8000)*20.48f/0x10000);
-//    SetTextValue(0,42,str);
-//    sprintf((char*)str,"%.3f",((s32)RxData[2]-0x8000)*20.48f/0x10000);
-//    SetTextValue(0,43,str);
-//    sprintf((char*)str,"%.3f",((s32)RxData[3]-0x8000)*20.48f/0x10000);
-//    SetTextValue(0,44,str);
-//    sprintf((char*)str,"%.3f",((s32)RxData[4]-0x8000)*20.48f/0x10000);
-//    SetTextValue(0,45,str);
 
-    if(SAMPLE_END_FLAG && i < SAMPLE_POINT)
-    {
-      OutData[0] = ((s32)BUF[0][i]-0x8000);
-      OutData[1] = ((s32)BUF[1][i]-0x8000);
-      OutData[2] = ((s32)BUF[2][i]-0x8000);
-      OutData[3] = ((s32)BUF[4][i]-0x8000);
-      OutPut_Data();
-      i++;
-    }
-    if(i == SAMPLE_POINT)
-    {
-      OutPut_Data();
-    }
-//    if(i < SAMPLE_POINT)
-//    {
-//    	if(i==0) FFT();
-//    	OutData[0] = WAVE[i];
-//    	OutData[1] = FFT_INPUT[i];
-//    	OutData[2] = FFT_OUTPUT[i];
-//    	OutData[3] = -FFT_OUTPUT_REAL[i];
-//    	OutData[0] = (float)((s32)BUF[0][i]-0x8000);
-//    	OutData[1] = (float)((s32)BUF[1][i]-0x8000);
-//    	OutPut_Data();
-//    	i++;
-//    }
-//    if(i == SAMPLE_POINT)
-//    {
-//    	OutPut_Data();
-//    	i++;
-//    }
-    DATA_UPDATE();
+    /* USER CODE BEGIN 3 */
+	/*正常工作，测输入输出阻抗，增益，幅频特性，失真度*/
+	while(1)
+	{
+
+
+//--------------------------------------------------------------------
+	  //开启CH1获取值
+	  Init_ADS8688(0x01);            //只开启通道1
+	  SAMPLE_POINT       = 2048;     //采集2048个点
+	  HAL_Delay(10);
+	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
+	  while(!SAMPLE_END_FLAG);       //等待采样完成
+	  SAMPLE_END_FLAG = 0;           //采样标记清零
+	  FFT();//TODO:                  //FFT计算出CH1幅值
+	  //DEBUG:
+#ifdef VSOC
+	  for(i=0;i<2048;i++)
+	  {
+		OutData[0] = BUF[i];
+		OutData[1] = FFT_INPUT[i];
+		OutData[2] = FFT_OUTPUT[i];
+		OutData[3] = FFT_OUTPUT_REAL[i];
+		OutPut_Data();
+	  }
+	  OutPut_Data();
+#endif
+#ifdef TFT
+	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  SetTextValue(0,41,str);
+	  CH_VPP_VALUE[0] = FFT_OUTPUT_REAL[32];
+#endif
+
+
+//--------------------------------------------------------------------
+	  //开启CH2获取值
+	  Init_ADS8688(0x02);            //只开启通道2
+	  SAMPLE_POINT       = 2048;     //采集2048个点
+	  HAL_Delay(10);
+	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
+	  while(!SAMPLE_END_FLAG);       //等待采样完成
+	  SAMPLE_END_FLAG = 0;           //采样标记清零
+	  FFT();//TODO:                  //FFT计算出CH2幅值
+	  //DEBUG:
+#ifdef VSOC
+	  for(i=0;i<2048;i++)
+	  {
+		OutData[0] = BUF[i];
+		OutData[1] = FFT_INPUT[i];
+		OutData[2] = FFT_OUTPUT[i];
+		OutData[3] = FFT_OUTPUT_REAL[i];
+		OutPut_Data();
+	  }
+	  OutPut_Data();
+#endif
+#ifdef TFT
+	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  SetTextValue(0,42,str);
+	  CH_VPP_VALUE[1] = FFT_OUTPUT_REAL[32];
+	  //显示输入阻抗
+	  sprintf((char*)str,"%.3fKΩ",CH_VPP_VALUE[1]/(CH_VPP_VALUE[0]-CH_VPP_VALUE[1])*6.8);
+	  SetTextValue(1,41,str);
+#endif
+
+
+
+//--------------------------------------------------------------------
+	  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_SET);
+	  HAL_Delay(300);
+	  //开启CH3获取值
+	  Init_ADS8688(0x04);            //只开启通道1
+	  SAMPLE_POINT       = 2048;     //采集2048个点
+	  HAL_Delay(10);
+	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
+	  while(!SAMPLE_END_FLAG);       //等待采样完成
+	  SAMPLE_END_FLAG = 0;           //采样标记清零
+	  FFT();//TODO:                  //FFT计算出CH1幅值
+	  //DEBUG:
+#ifdef VSOC
+	  for(i=0;i<2048;i++)
+	  {
+		OutData[0] = BUF[i];
+		OutData[1] = FFT_INPUT[i];
+		OutData[2] = FFT_OUTPUT[i];
+		OutData[3] = FFT_OUTPUT_REAL[i];
+		OutPut_Data();
+	  }
+	  OutPut_Data();
+#endif
+#ifdef TFT
+	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[0]*Svar.CH1_COMPENSATE/511/4);
+	  SetTextValue(0,43,str);
+	  CH_VPP_VALUE[2] = FFT_OUTPUT_REAL[32];
+#endif
+
+//--------------------------------------------------------------------
+	  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_SET);
+	  HAL_Delay(300);
+	  //开启CH4获取值
+	  Init_ADS8688(0x10);            //只开启通道1
+	  SAMPLE_POINT       = 2048;     //采集2048个点
+	  HAL_Delay(10);
+	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
+	  while(!SAMPLE_END_FLAG);       //等待采样完成
+	  SAMPLE_END_FLAG = 0;           //采样标记清零
+	  FFT();//TODO:                  //FFT计算出CH1幅值
+	  //DEBUG:
+#ifdef VSOC
+	  for(i=0;i<2048;i++)
+	  {
+		OutData[0] = BUF[i];
+		OutData[1] = FFT_INPUT[i];
+		OutData[2] = FFT_OUTPUT[i];
+		OutData[3] = FFT_OUTPUT_REAL[i];
+		OutPut_Data();
+	  }
+	  OutPut_Data();
+#endif
+#ifdef TFT
+	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  SetTextValue(0,44,str);
+	  CH_VPP_VALUE[3] = FFT_OUTPUT_REAL[32];
+	  //显示输出阻抗
+	  sprintf((char*)str,"%.2f",CH_VPP_VALUE[3]/CH_VPP_VALUE[1]);
+	  SetTextValue(1,43,str);
+#endif
+
+
+//--------------------------------------------------------------------
+	  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_RESET);
+	  HAL_Delay(300);
+	  //开启CH5获取值
+	  Init_ADS8688(0x20);            //只开启通道1
+	  SAMPLE_POINT       = 2048;     //采集2048个点
+	  HAL_Delay(10);
+	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
+	  while(!SAMPLE_END_FLAG);       //等待采样完成
+	  SAMPLE_END_FLAG = 0;           //采样标记清零
+	  FFT();//TODO:                  //FFT计算出CH1幅值
+	  //DEBUG:
+#ifdef VSOC
+	  for(i=0;i<2048;i++)
+	  {
+		OutData[0] = BUF[i];
+		OutData[1] = FFT_INPUT[i];
+		OutData[2] = FFT_OUTPUT[i];
+		OutData[3] = FFT_OUTPUT_REAL[i];
+		OutPut_Data();
+	  }
+	  OutPut_Data();
+#endif
+#ifdef TFT
+	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  SetTextValue(0,45,str);
+	  CH_VPP_VALUE[4] = FFT_OUTPUT_REAL[32];
+	  //显示输出阻抗
+	  sprintf((char*)str,"%.3fKΩ",(CH_VPP_VALUE[3]-CH_VPP_VALUE[4])/CH_VPP_VALUE[4]);
+	  SetTextValue(1,42,str);
+#endif
+
+//	  Init_ADS8688();
+//	  ;
+//	  ;
+      if(freq != L_freq)
+      {
+        Out_freq(2, freq);
+        L_freq = freq;
+      }
+      if(mv   != L_mv)
+      {
+        Out_mV(2, mv);
+        L_mv = mv;
+      }
+
+
+      LED0_T;
+      DATA_UPDATE();
+	}
   }
   /* USER CODE END 3 */
 }
@@ -280,12 +434,11 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
   RCC_OscInitStruct.PLL.PLLN = 168;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;

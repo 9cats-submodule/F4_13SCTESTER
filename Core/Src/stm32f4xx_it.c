@@ -62,26 +62,22 @@
 
 
 //------------接收和发送BUF--------------
-#define CHANNEL_NUM 5   //最大通道数
-u8  rxbuf [CHANNEL_NUM][4] = {0};
-u8  txbuf [CHANNEL_NUM]    = {0};
-u16 RxData[CHANNEL_NUM]    = {0};
+u8  rxbuf [4]    = {0};
+u8  txbuf [2]    = {0};
 //----------------------------------------
 
-//---------------标志-------------------
-u8 ADS8688_BUSY = 0;
-//---------------------------------------
+//---------------标志-------------------------------------
+u8 ADS8688_BUSY = 0;     //ADS8688 DMA接收还未完成
+u8 SAMPLE_END_FLAG = 0;  //采样结束标记
+//--------------------------------------------------------
 
-//---------------变量-------------------
-u8 CH = 0;               //下次将要采样的通道|正在采样的通道
-u8 CH_SELECT = 0;        //当前正在正在使用的通道
-u8 CH_NUM    = 0;        //当前通道数
-//---------------------------------------
+//---------------------------变量-------------------------------
+#define SAMPLE_POINT_MAX 2048 //采样点数最大
+u16 SAMPLE_POINT= 0;          //将要采样的点数
+u32 BUF[SAMPLE_POINT_MAX] = {0};
+//--------------------------------------------------------------
 
 //---------------DEBUG用-------------------
-#define SAMPLE_POINT 2048 //采样点数
-u16 BUF[CHANNEL_NUM][SAMPLE_POINT] = {0};
-u8  SAMPLE_END_FLAG = 0;
 //---------------------------------------
 
 
@@ -90,7 +86,7 @@ u8  SAMPLE_END_FLAG = 0;
 /* External variables --------------------------------------------------------*/
 extern DMA_HandleTypeDef hdma_spi3_rx;
 extern DMA_HandleTypeDef hdma_spi3_tx;
-extern TIM_HandleTypeDef htim3;
+extern TIM_HandleTypeDef htim1;
 extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
@@ -241,21 +237,10 @@ void SysTick_Handler(void)
 void DMA1_Stream0_IRQHandler(void)
 {
   /* USER CODE BEGIN DMA1_Stream0_IRQn 0 */
-  //------DMA传输结束
   ADS8688_BUSY = 0;
-
   /* USER CODE END DMA1_Stream0_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_spi3_rx);
   /* USER CODE BEGIN DMA1_Stream0_IRQn 1 */
-  //切换通道
-  //  switch(CH)
-  //  {
-  //    case 0/*通道1*/: CH = 1;break;
-  //    case 1/*通道2*/: CH = 2;break;
-  //    case 2/*通道3*/: CH = 3;break;
-  //    case 3/*通道4*/: CH = 4;break;
-  //    case 4/*通道5*/: CH = 0;break;
-  //  }
   SAMPLE_END;    //拉高CS
   /* USER CODE END DMA1_Stream0_IRQn 1 */
 }
@@ -275,88 +260,46 @@ void DMA1_Stream5_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles TIM3 global interrupt.
+  * @brief This function handles TIM1 update interrupt and TIM10 global interrupt.
   */
-void TIM3_IRQHandler(void)
+void TIM1_UP_TIM10_IRQHandler(void)
 {
-  /* USER CODE BEGIN TIM3_IRQn 0 */
+  /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 0 */
   static u16 i=0;
-  /* USER CODE END TIM3_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim3);
-  /* USER CODE BEGIN TIM3_IRQn 1 */
+  /* USER CODE END TIM1_UP_TIM10_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim1);
+  /* USER CODE BEGIN TIM1_UP_TIM10_IRQn 1 */
   if(!ADS8688_BUSY)
   {
     //开启下一次扫描
     ADS8688_BUSY = 1;
     SAMPLE_BEGIN;  //重新拉低CS，ADS8688开始运输
-    if(i == 0)
+    if(i<SAMPLE_POINT+10 && i>=10)
     {
-  	  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[CH], 2);
-  	  i++;
-    }
-    if(i<2025 && i)
-    {
-      RxData[CH] = *(u16*)(&rxbuf[CH][2]);
-      BUF[CH][i-1] = RxData[CH];
-	  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[CH], 2);
+      BUF[i-10] = *(u16*)(&rxbuf[2])-0x8000;  //取出采样值到BUF中
+	  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf, 2);
 	  i++;
     }
-    if(i==2025)
+    if(i < 10)     //i=0时不采值
     {
-      if(CH==4)
-      {
-      	SAMPLE_END_FLAG=1;
-      }
-      else
-      {
-    	i=0;
-    	CH++;
-    	if(CH == 1) Init_ADS8688(0x02);
-    	if(CH == 2) Init_ADS8688(0x04);
-    	if(CH == 3) Init_ADS8688(0x10);
-    	if(CH == 4) Init_ADS8688(0x20);
-      }
+  	  HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf, 2);
+  	  i++;
     }
-    //CH -> 将要扫描的通道
-    //    switch(CH)
-    //    {
-    //      case 0/*通道N已采完*/:  {
-    //    	  RxData[4] = *(u16*)(&rxbuf[4][2]);
-    //    	  BUF[1][i] = RxData[1];
-    //      }break;
-    //      case 1/*通道1已采完*/: {
-    //      	RxData[0] = *(u16*)(&rxbuf[0][2]);
-    //      	if(i<SAMPLE_POINT) BUF[0][i++] = RxData[0];
-    //      	else SAMPLE_END_FLAG=1;
-    //      }break;
-    //      case 2/*通道2已采完*/:
-    //      {
-    //        RxData[1] = *(u16*)(&rxbuf[1][2]);
-    //      }
-    //      case 3/*通道3已采完*/:
-    //      {
-    //        RxData[2] = *(u16*)(&rxbuf[2][2]);
-    //      }
-    //      case 4/*通道5已采完*/:
-    //      {
-    //        RxData[3] = *(u16*)(&rxbuf[3][2]);
-    //      }
-    //    }
-    //    switch(CH)
-    //    {
-    //  	  case 0/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[0], 2);break;
-    //  	  case 1/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[1], 2);break;
-    //  	  case 2/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[2], 2);break;
-    //  	  case 3/*通道2*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[3], 2);break;
-    //  	  case 4/*通道1*/: HAL_SPI_TransmitReceive_DMA(&hspi3, txbuf, rxbuf[4], 2);break;
-    //    }
-    //------DMA传输重新开始
+    if(i == SAMPLE_POINT+10)
+    {
+      //定时器任务结束
+      i=0;
+      SAMPLE_END_FLAG = 1;
+      HAL_TIM_Base_Stop_IT(&htim1);
+      __HAL_TIM_SET_COUNTER(&htim1,0);
+    }
   }
   else
   {
+	//正常情况无法到此处
     ADS8688_BUSY = ADS8688_BUSY;
   }
-  /* USER CODE END TIM3_IRQn 1 */
+  /* USER CODE END TIM1_UP_TIM10_IRQn 1 */
 }
 
 /**
