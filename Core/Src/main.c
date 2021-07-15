@@ -54,6 +54,8 @@
 #define TP_CHECK(x0,y0,x1,y1) tp_dev.x[0] > x0 && tp_dev.y[0] > y0 && tp_dev.x[0] < x1 && tp_dev.y[0] < y1
 #define SAMPLE_BEGIN PAout(15)=0;
 #define SAMPLE_END   PAout(15)=1;
+#define RELAY_NO HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_SET);
+#define RELAY_NC HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_RESET);
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -90,7 +92,26 @@ float freq = 1000.0f,L_freq = 1000.0f;
 float mv   =300.0f,L_mv = 300.0f;
 
 extern u16 RxData[];
-
+///////////////////////////////////////////
+s16 offset = 57;
+float RMS_COMPENSATE = 1134.0f;
+float SCAN_VPP[200];
+float SCAN_MAX;
+u8 DATA_SHOW[51];
+//*100Hz 201个点
+u16 freqScanArr[50] =
+{
+   1,   2,   3,   4,   5,
+   6,   7,   8,   9,  10,
+  12,  14,  16,  18,  20,
+  26,  32,  38,  44,  50,
+  60,  70,  80,  90, 100,
+ 120, 140, 160, 180, 200,
+ 240, 280, 320, 360, 400,
+ 480, 560, 640, 720, 800,
+ 960,1120,1280,1440,1600,
+1760,1920,2080,2240,2400
+};
 //-----------------------------标志---------------------------------------
 extern u8 SAMPLE_END_FLAG;    //采样结束标记
 //------------------------------------------------------------------------
@@ -98,7 +119,7 @@ extern u8 SAMPLE_END_FLAG;    //采样结束标记
 //-----------------------------变量---------------------------------------
 extern u16 SAMPLE_POINT;       //将要采样的点数
 extern s32 BUF[SAMPLE_POINT_MAX];
-float CH_VPP_VALUE[SAMPLE_POINT_MAX] = {0};
+float CH_VPP_VALUE[5] = {0};
 //------------------------------------------------------------------------
 
 //----------------------------可储存变量------------------------------------------
@@ -156,9 +177,72 @@ void FFT(void)
 	arm_rfft_fast_f32(&S, FFT_INPUT, FFT_OUTPUT,0);     //FFT变化
 	arm_cmplx_mag_f32(FFT_OUTPUT,FFT_OUTPUT_REAL,2048); //求模
 }
-
-void SCAN(void)
+//THD-求失真度 64k采样 1k待采
+float THD(void)
 {
+  //基波
+  float basic = FFT_OUTPUT_REAL[32];
+  //谐波
+  float harmon[6],harmon_power,high;
+
+  harmon[0] = FFT_OUTPUT_REAL[32*2];
+  harmon[1] = FFT_OUTPUT_REAL[32*3];
+  harmon[2] = FFT_OUTPUT_REAL[32*4];
+  harmon[3] = FFT_OUTPUT_REAL[32*5];
+  harmon[4] = FFT_OUTPUT_REAL[32*6];
+  harmon[5] = FFT_OUTPUT_REAL[32*7];
+
+  arm_power_f32(harmon, 6, &harmon_power);
+  arm_sqrt_f32(harmon_power,&high);
+
+  return high / basic;
+}
+
+
+//通过FFT求某通道的1K幅度
+float SCAN_FFT_1K(u8 ch)
+{
+  Init_ADS8688(ch);            //只开启通道1
+  SAMPLE_POINT       = 2048;     //采集2048个点
+  HAL_Delay(2);
+  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
+  while(!SAMPLE_END_FLAG);       //等待采样完成
+  SAMPLE_END_FLAG = 0;           //采样标记清零
+  FFT();                         //FFT计算出CH1幅值
+  //DEBUG:
+  #ifdef VSOC
+  for(i=0;i<2048;i++)
+  {
+  	OutData[0] = BUF[i];
+  	OutData[1] = FFT_INPUT[i];
+  	OutData[2] = FFT_OUTPUT[i];
+  	OutData[3] = FFT_OUTPUT_REAL[i];
+  	OutPut_Data();
+  }
+  OutPut_Data();
+  #endif
+
+  return FFT_OUTPUT_REAL[32];
+}
+
+float SCAN_RMS(u8 ch)
+{
+  u16 i;
+  float sum=0;
+
+  Init_ADS8688(ch);            //只开启通道1
+  SAMPLE_POINT  = 64;         //采集100个点
+  HAL_Delay(2);
+  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
+  while(!SAMPLE_END_FLAG);       //等待采样完成
+  SAMPLE_END_FLAG = 0;           //采样标记清零
+
+  for(i=0;i<64;i++)
+  {
+    sum+= (s32)BUF[i]+offset;
+  }
+
+  return sum/64;
 }
 /* USER CODE END 0 */
 
@@ -206,8 +290,6 @@ int main(void)
   tp_dev.init();
   TFT_Init();
   DATA_INIT();
-//  Init_ADS8688(0x37);
-  Init_ADS8688(0x01);
   Init_AD9959();
 
   //时耗
@@ -215,190 +297,108 @@ int main(void)
   Out_freq(2, 1000);
   Out_mV(2, 300);
 
-
-
-// 续点器驱动
-//  while(1)
-//  {
-//  HAL_Delay(1000);
-//  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_RESET);
-//  HAL_Delay(1000);
-//  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_SET);
-//  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	u16 i=0;
 	u8 str[20];
+	u32 i;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 	/*正常工作，测输入输出阻抗，增益，幅频特性，失真度*/
 	while(1)
 	{
-
-
-//--------------------------------------------------------------------
-	  //开启CH1获取值
-	  Init_ADS8688(0x01);            //只开启通道1
-	  SAMPLE_POINT       = 2048;     //采集2048个点
-	  HAL_Delay(10);
-	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
-	  while(!SAMPLE_END_FLAG);       //等待采样完成
-	  SAMPLE_END_FLAG = 0;           //采样标记清零
-	  FFT();//TODO:                  //FFT计算出CH1幅值
-	  //DEBUG:
-#ifdef VSOC
-	  for(i=0;i<2048;i++)
-	  {
-		OutData[0] = BUF[i];
-		OutData[1] = FFT_INPUT[i];
-		OutData[2] = FFT_OUTPUT[i];
-		OutData[3] = FFT_OUTPUT_REAL[i];
-		OutPut_Data();
-	  }
-	  OutPut_Data();
-#endif
+      //开启CH1获取值
+	  HAL_Delay(100);
+	  CH_VPP_VALUE[0] = SCAN_FFT_1K(0x01)*Svar.CH1_COMPENSATE/511;
 #ifdef TFT
-	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  //显示CH1_VPP
+	  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[0]);
 	  SetTextValue(0,41,str);
-	  CH_VPP_VALUE[0] = FFT_OUTPUT_REAL[32];
 #endif
 
 
-//--------------------------------------------------------------------
 	  //开启CH2获取值
-	  Init_ADS8688(0x02);            //只开启通道2
-	  SAMPLE_POINT       = 2048;     //采集2048个点
-	  HAL_Delay(10);
-	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
-	  while(!SAMPLE_END_FLAG);       //等待采样完成
-	  SAMPLE_END_FLAG = 0;           //采样标记清零
-	  FFT();//TODO:                  //FFT计算出CH2幅值
-	  //DEBUG:
-#ifdef VSOC
-	  for(i=0;i<2048;i++)
-	  {
-		OutData[0] = BUF[i];
-		OutData[1] = FFT_INPUT[i];
-		OutData[2] = FFT_OUTPUT[i];
-		OutData[3] = FFT_OUTPUT_REAL[i];
-		OutPut_Data();
-	  }
-	  OutPut_Data();
-#endif
+	  HAL_Delay(100);
+	  CH_VPP_VALUE[1] = SCAN_FFT_1K(0x02)*Svar.CH1_COMPENSATE/511;
 #ifdef TFT
-	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  //显示CH2_VPP
+	  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[1]);
 	  SetTextValue(0,42,str);
-	  CH_VPP_VALUE[1] = FFT_OUTPUT_REAL[32];
 	  //显示输入阻抗
 	  sprintf((char*)str,"%.3fKΩ",CH_VPP_VALUE[1]/(CH_VPP_VALUE[0]-CH_VPP_VALUE[1])*6.8);
 	  SetTextValue(1,41,str);
 #endif
 
 
-
-//--------------------------------------------------------------------
-	  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_SET);
-	  HAL_Delay(300);
 	  //开启CH3获取值
-	  Init_ADS8688(0x04);            //只开启通道1
-	  SAMPLE_POINT       = 2048;     //采集2048个点
-	  HAL_Delay(10);
-	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
-	  while(!SAMPLE_END_FLAG);       //等待采样完成
-	  SAMPLE_END_FLAG = 0;           //采样标记清零
-	  FFT();//TODO:                  //FFT计算出CH1幅值
-	  //DEBUG:
-#ifdef VSOC
-	  for(i=0;i<2048;i++)
-	  {
-		OutData[0] = BUF[i];
-		OutData[1] = FFT_INPUT[i];
-		OutData[2] = FFT_OUTPUT[i];
-		OutData[3] = FFT_OUTPUT_REAL[i];
-		OutPut_Data();
-	  }
-	  OutPut_Data();
-#endif
+	  HAL_Delay(110);
+	  CH_VPP_VALUE[2] = SCAN_FFT_1K(0x04)*Svar.CH1_COMPENSATE/511;
 #ifdef TFT
-	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
-	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[0]*Svar.CH1_COMPENSATE/511/4);
-	  SetTextValue(0,43,str);
-	  CH_VPP_VALUE[2] = FFT_OUTPUT_REAL[32];
+	  //显示CH3_VPP
+//	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[2]);
+	  //TODO:直流!!!
+//	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[0]*Svar.CH1_COMPENSATE/511/4);
+//	  SetTextValue(0,43,str);
 #endif
 
-//--------------------------------------------------------------------
-	  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_SET);
+
+	  RELAY_NO;
 	  HAL_Delay(300);
 	  //开启CH4获取值
-	  Init_ADS8688(0x10);            //只开启通道1
-	  SAMPLE_POINT       = 2048;     //采集2048个点
-	  HAL_Delay(10);
-	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
-	  while(!SAMPLE_END_FLAG);       //等待采样完成
-	  SAMPLE_END_FLAG = 0;           //采样标记清零
-	  FFT();//TODO:                  //FFT计算出CH1幅值
-	  //DEBUG:
-#ifdef VSOC
-	  for(i=0;i<2048;i++)
-	  {
-		OutData[0] = BUF[i];
-		OutData[1] = FFT_INPUT[i];
-		OutData[2] = FFT_OUTPUT[i];
-		OutData[3] = FFT_OUTPUT_REAL[i];
-		OutPut_Data();
-	  }
-	  OutPut_Data();
-#endif
+	  //CH_VPP_VALUE[3] = SCAN_FFT_1K(0x10)*Svar.CH1_COMPENSATE/511;
+	  CH_VPP_VALUE[3] = SCAN_RMS(0x10)*Svar.CH1_COMPENSATE/RMS_COMPENSATE;
 #ifdef TFT
-	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  //显示CH4_VPP
+
+	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[3]);
 	  SetTextValue(0,44,str);
-	  CH_VPP_VALUE[3] = FFT_OUTPUT_REAL[32];
 	  //显示输出阻抗
 	  sprintf((char*)str,"%.2f",CH_VPP_VALUE[3]/CH_VPP_VALUE[1]);
 	  SetTextValue(1,43,str);
 #endif
 
 
-//--------------------------------------------------------------------
-	  HAL_GPIO_WritePin(RELAY_IN_GPIO_Port, RELAY_IN_Pin, GPIO_PIN_RESET);
+	  RELAY_NC;
 	  HAL_Delay(300);
 	  //开启CH5获取值
-	  Init_ADS8688(0x20);            //只开启通道1
-	  SAMPLE_POINT       = 2048;     //采集2048个点
-	  HAL_Delay(10);
-	  HAL_TIM_Base_Start_IT(&htim1); //开启定时器
-	  while(!SAMPLE_END_FLAG);       //等待采样完成
-	  SAMPLE_END_FLAG = 0;           //采样标记清零
-	  FFT();//TODO:                  //FFT计算出CH1幅值
-	  //DEBUG:
-#ifdef VSOC
-	  for(i=0;i<2048;i++)
-	  {
-		OutData[0] = BUF[i];
-		OutData[1] = FFT_INPUT[i];
-		OutData[2] = FFT_OUTPUT[i];
-		OutData[3] = FFT_OUTPUT_REAL[i];
-		OutPut_Data();
-	  }
-	  OutPut_Data();
-#endif
+	  CH_VPP_VALUE[4] = SCAN_FFT_1K(0x20)*Svar.CH1_COMPENSATE/511;
 #ifdef TFT
-	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[32]*Svar.CH1_COMPENSATE/511);
+	  //显示CH5_VPP
+	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[4]);
 	  SetTextValue(0,45,str);
-	  CH_VPP_VALUE[4] = FFT_OUTPUT_REAL[32];
 	  //显示输出阻抗
 	  sprintf((char*)str,"%.3fKΩ",(CH_VPP_VALUE[3]-CH_VPP_VALUE[4])/CH_VPP_VALUE[4]);
 	  SetTextValue(1,42,str);
+	  //显示失真度
+	  sprintf((char*)str,"%.2f%%",THD()*100);
+	  SetTextValue(1,44,str);
 #endif
 
-//	  Init_ADS8688();
-//	  ;
-//	  ;
+
+	  RELAY_NO;
+	  HAL_Delay(100);
+	  //扫频
+	  for(i=0;i<50;i++)
+	  {
+		Out_freq(2, freqScanArr[i]*100);
+		HAL_Delay(100);
+		SCAN_VPP[i] = SCAN_RMS(0x10)*Svar.CH1_COMPENSATE/RMS_COMPENSATE;
+	  }
+	  Out_freq(2, 1000);
+	  //找最大值
+	  arm_max_f32(SCAN_VPP, 200, &SCAN_MAX, &i);
+	  DATA_SHOW[0] = 0;
+	  for(i=1;i<=50;i++)
+	  {
+		DATA_SHOW[i] = SCAN_VPP[i-1] / SCAN_MAX * 222;
+	  }
+	  GraphChannelDataAdd(1,51,1,(u8*)DATA_SHOW,400);
+
+	  //DEBUG用，调节DDS输出
       if(freq != L_freq)
       {
         Out_freq(2, freq);

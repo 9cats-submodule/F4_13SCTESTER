@@ -40,7 +40,6 @@ void Param_Update(void) //获取当前新参数
     qsize size = queue_find_cmd(cmd_buffer,CMD_MAX_SIZE);
     if(size)
     {
-        //TODO:两条指令
     	LED1_T;
         ProcessMessage((PCTRL_MSG)cmd_buffer, size);//指令处理
         LED1_T;
