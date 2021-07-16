@@ -466,8 +466,8 @@ int main(void)
 		    Out_freq(2, lower_freq);
 		    HAL_Delay(20);
 		    SCAN_VPP[i] = SCAN_RMS()*Svar.CH1_COMPENSATE/RMS_COMPENSATE;
-		    if(SCAN_VPP[i] < 0.7071067f*SCAN_MAX) freq_a=lower_freq;
-		    if(SCAN_VPP[i] >=0.7071067f*SCAN_MAX) freq_b=lower_freq;
+		    if(SCAN_VPP[i] > 0.7071067f*SCAN_MAX) freq_a=lower_freq;
+		    if(SCAN_VPP[i] <=0.7071067f*SCAN_MAX) freq_b=lower_freq;
 		    lower_freq = (freq_a+freq_b)/2;
 		  }
 		  sprintf((char*)str,"%dHz",lower_freq);
