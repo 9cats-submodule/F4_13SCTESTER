@@ -92,13 +92,11 @@ float freq = 1000.0f,L_freq = 1000.0f;
 float mv   =300.0f,L_mv = 300.0f;
 
 extern u16 RxData[];
-///////////////////////////////////////////
-s16 offset = 57;
-float RMS_COMPENSATE = 1134.0f;
+
 float SCAN_VPP[200];
 float SCAN_MAX;
 u32   SCAN_MAX_INDEX;
-u8 DATA_SHOW[51];
+u8 DATA_SHOW[116];
 //*10Hz 116个点
 u16 freqScanArr[116] ={     0, //  0
     0,    0,    0,    0,   10, // 100
@@ -138,18 +136,9 @@ float CH_VPP_VALUE[5] = {0};
 //----------------------------可储存变量------------------------------------------
 const u32 SAVE_ADDR = 0x0000f000;
 SVAR Svar = {
-  /*u8  WIFI     ;    //WIFI状态是否开启                                                      */      0,
-  /*u8  CH_SELECT;    //当前所选通道 0 1 2 3                         */      3,
-  /*u8  TG_SOURCE;    //触发源 1-CH1 2-CH2                           */      0,
-  /*u8  TG_MODE;      //触发模式 1-上升沿触发，2-下降沿触发，3-电平触发*/      1,
-  /*u8  RUN;          //是否STOP                                     */      1,
-  /*u8  AUTO;         //是否AUTO                                     */      0,
-  /*u8  COUPE;        //耦合方式 0-直流 1-交流                       */      0,
-  /*u16 TG_VAL;       //触发电平                                     */      0,
-  /*float VREF;       //ADS参考电压                                                               */ 4.096f,
-  /*float VCC;        //STM32参考电压                                                           */ 3.300f,
-  /*float COMPENSATE; //频率补偿                                     */  99.0f,
-  /*float CH1_COMPENSATE; //CH1补偿                                                              */ 909.09090909f
+  /*float FFT_COMPENSATE; //补偿FFT的误差*/909.09090909f,
+  /*float RMS_COMPENSATE; //补偿RMS     */1134.0f,
+  /*s16   ADS_OFFSET;     //ADS偏置补偿  */57
 };
 
 //数据保存操作
@@ -250,7 +239,7 @@ float SCAN_RMS(void)
 
   for(i=0;i<2048;i++)
   {
-    sum+= (s32)BUF[i]+offset;
+    sum+= (s32)BUF[i]+Svar.ADS_OFFSET;
   }
 
   return sum/2048;
@@ -326,7 +315,7 @@ int main(void)
 
       //开启CH1获取值
 	  HAL_Delay(100);
-	  CH_VPP_VALUE[0] = SCAN_FFT_1K(0x01)*Svar.CH1_COMPENSATE/511;
+	  CH_VPP_VALUE[0] = SCAN_FFT_1K(0x01)*Svar.FFT_COMPENSATE/511;
 #ifdef TFT
 	  //显示CH1_VPP
 	  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[0]);
@@ -337,7 +326,7 @@ int main(void)
 
 	  //开启CH2获取值
 	  HAL_Delay(100);
-	  CH_VPP_VALUE[1] = SCAN_FFT_1K(0x02)*Svar.CH1_COMPENSATE/511;
+	  CH_VPP_VALUE[1] = SCAN_FFT_1K(0x02)*Svar.FFT_COMPENSATE/511;
 #ifdef TFT
 	  //显示CH2_VPP
 	  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[1]);
@@ -351,12 +340,12 @@ int main(void)
 
 	  //开启CH3获取值
 	  HAL_Delay(110);
-	  CH_VPP_VALUE[2] = SCAN_FFT_1K(0x04)*Svar.CH1_COMPENSATE/511;
+	  CH_VPP_VALUE[2] = SCAN_FFT_1K(0x04)*Svar.FFT_COMPENSATE/511;
 #ifdef TFT
 	  //显示CH3_VPP
 //	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[2]);
 	  //TODO:直流!!!
-//	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[0]*Svar.CH1_COMPENSATE/511/4);
+//	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[0]*Svar.FFT_COMPENSATE/511/4);
 //	  SetTextValue(0,43,str);
 #endif
 
@@ -366,8 +355,7 @@ int main(void)
 	  Init_ADS8688(0x10);
 	  HAL_Delay(300);
 	  //开启CH4获取值
-	  //CH_VPP_VALUE[3] = SCAN_FFT_1K(0x10)*Svar.CH1_COMPENSATE/511;
-	  CH_VPP_VALUE[3] = SCAN_RMS()*Svar.CH1_COMPENSATE/RMS_COMPENSATE;
+	  CH_VPP_VALUE[3] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
 #ifdef TFT
 	  //显示CH4_VPP
 
@@ -382,7 +370,7 @@ int main(void)
 	  RELAY_NC;
 	  HAL_Delay(300);
 	  //开启CH5获取值
-	  CH_VPP_VALUE[4] = SCAN_FFT_1K(0x20)*Svar.CH1_COMPENSATE/511;
+	  CH_VPP_VALUE[4] = SCAN_FFT_1K(0x20)*Svar.FFT_COMPENSATE/511;
 #ifdef TFT
 	  //显示CH5_VPP
 	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[4]);
@@ -407,7 +395,7 @@ int main(void)
 			sprintf((char*)str,"扫频:%ld%%",i*100/116);
 			SetTextValue(1,49,str);
 			HAL_Delay(20);
-			SCAN_VPP[i] = SCAN_RMS()*Svar.CH1_COMPENSATE/RMS_COMPENSATE;
+			SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
 		}
 	  }
 	  //找最大值 -- 和最大值对应的序列
@@ -444,7 +432,7 @@ int main(void)
 		  {
 		    Out_freq(2, lower_freq/10.0f);
 		    HAL_Delay(20);
-		    SCAN_VPP[i] = SCAN_RMS()*Svar.CH1_COMPENSATE/RMS_COMPENSATE;
+		    SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
 		    if(SCAN_VPP[i] < 0.7071067f*SCAN_MAX) freq_a=lower_freq;
 		    if(SCAN_VPP[i] >=0.7071067f*SCAN_MAX) freq_b=lower_freq;
 		    lower_freq = (freq_a+freq_b)/2;
@@ -465,7 +453,7 @@ int main(void)
 		  {
 		    Out_freq(2, lower_freq);
 		    HAL_Delay(20);
-		    SCAN_VPP[i] = SCAN_RMS()*Svar.CH1_COMPENSATE/RMS_COMPENSATE;
+		    SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
 		    if(SCAN_VPP[i] > 0.7071067f*SCAN_MAX) freq_a=lower_freq;
 		    if(SCAN_VPP[i] <=0.7071067f*SCAN_MAX) freq_b=lower_freq;
 		    lower_freq = (freq_a+freq_b)/2;
