@@ -50,11 +50,12 @@ typedef struct _SVAR
 {
   float FFT_COMPENSATE; //²¹³¥FFTµÄÎó²î
   float RMS_COMPENSATE; //²¹³¥RMS
+  float  DC_COMPENSATE; //FFTµÄÖ¸Áî²¹³¥
   s16   ADS_OFFSET;     //ADSÆ«ÖÃ²¹³¥
 }SVAR;
 #pragma pack(pop)
 extern SVAR Svar;
-
+extern u8   mode;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -71,7 +72,9 @@ extern SVAR Svar;
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-
+void Measure(void);
+void ScanFreq(void);
+void FaultChecK(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

@@ -59,7 +59,7 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)
 			switch (control_type)
 			{
 			case kCtrlButton: //按钮控件
-				NotifyButton(screen_id, control_id, msg->param[0], NULL);
+				NotifyButton(screen_id, control_id, msg->param[1], NULL);
 				break;
 			case kCtrlText: //文本控件
 				NotifyText(screen_id, control_id, msg->param, NULL);
@@ -151,6 +151,20 @@ void NotifyTouchXY(uint8 press, uint16 x, uint16 y, void *userdata)
  */
 void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state, void *userdata)
 {
+  if(state==1)
+  {
+	if(screen_id == 1 && control_id == 52)
+	  mode = 1;
+	if(screen_id == 1 && control_id == 53)
+	  mode = 2;
+	if(screen_id == 1 && control_id == 54)
+	  mode = 3;
+  }
+  else
+  {
+	if(screen_id == 1 && (control_id == 52 || control_id == 53 || control_id == 54))
+		mode = 0;
+  }
 }
 
 /*! 

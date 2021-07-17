@@ -82,7 +82,6 @@ void SystemClock_Config(void);
 //#define VSOC
 
 #define SAMPLE_POINT_MAX 2048 //采样点数
-extern u8  SAMPLE_END_FLAG;
 float FFT_INPUT [SAMPLE_POINT_MAX];
 float FFT_OUTPUT[SAMPLE_POINT_MAX];
 float FFT_OUTPUT_REAL[SAMPLE_POINT_MAX];
@@ -91,37 +90,31 @@ float WAVE[SAMPLE_POINT_MAX];
 float freq = 1000.0f,L_freq = 1000.0f;
 float mv   =300.0f,L_mv = 300.0f;
 
-extern u16 RxData[];
-
-float SCAN_VPP[200];
-float SCAN_MAX;
-u32   SCAN_MAX_INDEX;
-u8 DATA_SHOW[116];
 //*10Hz 116个点
-u16 freqScanArr[116] ={     0, //  0
+u16 freqScanArr[116] ={     0, //   0
     0,    0,    0,    0,   10, // 100
    12,   14,   16,   18,   20, // 200
    22,   24,   26,   28,   30, // 300
    32,   34,   36,   38,   40, // 400
    42,   44,   46,   48,   50, // 500
    54,   58,   62,   66,   70, // 700
-   76,   82,   88,   94,  100, // 1K
-  180,  260,  340,  420,  500, // 5K
+   76,   82,   88,   94,  100, //  1K
+  180,  260,  340,  420,  500, //  5K
   600,  700,  800,  900, 1000, // 10K
  1100, 1200, 1300, 1400, 1500, // 15K
  1600, 1700, 1800, 1900, 2000, // 20K
  2200, 2400, 2600, 2800, 3000, // 30K
- 3200, 3400, 3600, 3800, 4000, // 
- 4200, 4400, 4600, 4800, 5000, //
- 5200, 5400, 5600, 5800, 6000, //
- 6200, 6400, 6600, 6800, 7000, //
- 7200, 7400, 7600, 7800, 8000, //
- 8400, 8800, 9200, 9600,10000, //
-10400,10800,11200,11600,12000, //
-12400,12800,13200,13600,14000, //
-14400,14800,15200,15600,16000, //
-16400,16800,17200,17600,18000, //
-18400,18800,19200,19600,20000  //
+ 3200, 3400, 3600, 3800, 4000, // 40K
+ 4200, 4400, 4600, 4800, 5000, // 50K
+ 5200, 5400, 5600, 5800, 6000, // 60K
+ 6200, 6400, 6600, 6800, 7000, // 70K
+ 7200, 7400, 7600, 7800, 8000, // 80K
+ 8400, 8800, 9200, 9600,10000, //100K
+10400,10800,11200,11600,12000, //120K
+12400,12800,13200,13600,14000, //140K
+14400,14800,15200,15600,16000, //160K
+16400,16800,17200,17600,18000, //180K
+18400,18800,19200,19600,20000  //200K
 };
 //-----------------------------标志---------------------------------------
 extern u8 SAMPLE_END_FLAG;    //采样结束标记
@@ -130,7 +123,14 @@ extern u8 SAMPLE_END_FLAG;    //采样结束标记
 //-----------------------------变量---------------------------------------
 extern u16 SAMPLE_POINT;       //将要采样的点数
 extern s32 BUF[SAMPLE_POINT_MAX];
+
 float CH_VPP_VALUE[5] = {0};
+float SCAN_VPP[200];
+float SCAN_MAX;
+u32   SCAN_MAX_INDEX;
+u8    DATA_SHOW[116];
+
+u8    mode = 0; //当前模式 0-待机 1-测量数据 2-幅频特性 3-故障检测
 //------------------------------------------------------------------------
 
 //----------------------------可储存变量------------------------------------------
@@ -138,6 +138,7 @@ const u32 SAVE_ADDR = 0x0000f000;
 SVAR Svar = {
   /*float FFT_COMPENSATE; //补偿FFT的误差*/909.09090909f,
   /*float RMS_COMPENSATE; //补偿RMS     */1134.0f,
+  /*float  DC_COMPENSATE; //FFT的直流补偿*/0.254599959f,
   /*s16   ADS_OFFSET;     //ADS偏置补偿  */57
 };
 
@@ -303,183 +304,31 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	u8 str[20];
-	u32 i;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 	/*正常工作，测输入输出阻抗，增益，幅频特性，失真度*/
-	while(1)
-	{
-	  SetTextValue(1,49,(u8*)"测量电路参数中.   ");
-
-      //开启CH1获取值
-	  HAL_Delay(100);
-	  CH_VPP_VALUE[0] = SCAN_FFT_1K(0x01)*Svar.FFT_COMPENSATE/511;
-#ifdef TFT
-	  //显示CH1_VPP
-	  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[0]);
-	  SetTextValue(0,41,str);
-#endif
-
-	  SetTextValue(1,49,(u8*)"测量电路参数中..  ");
-
-	  //开启CH2获取值
-	  HAL_Delay(100);
-	  CH_VPP_VALUE[1] = SCAN_FFT_1K(0x02)*Svar.FFT_COMPENSATE/511;
-#ifdef TFT
-	  //显示CH2_VPP
-	  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[1]);
-	  SetTextValue(0,42,str);
-	  //显示输入阻抗
-	  sprintf((char*)str,"%.3fKΩ",CH_VPP_VALUE[1]/(CH_VPP_VALUE[0]-CH_VPP_VALUE[1])*6.8);
-	  SetTextValue(1,41,str);
-#endif
-
-	  SetTextValue(1,49,(u8*)"测量电路参数中... ");
-
-	  //开启CH3获取值
-	  HAL_Delay(110);
-	  CH_VPP_VALUE[2] = SCAN_FFT_1K(0x04)*Svar.FFT_COMPENSATE/511;
-#ifdef TFT
-	  //显示CH3_VPP
-//	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[2]);
-	  //TODO:直流!!!
-//	  sprintf((char*)str,"%.0fmV",FFT_OUTPUT_REAL[0]*Svar.FFT_COMPENSATE/511/4);
-//	  SetTextValue(0,43,str);
-#endif
-
-	  SetTextValue(1,49,(u8*)"测量电路参数中....");
-
-	  RELAY_NO;
-	  Init_ADS8688(0x10);
-	  HAL_Delay(300);
-	  //开启CH4获取值
-	  CH_VPP_VALUE[3] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
-#ifdef TFT
-	  //显示CH4_VPP
-
-	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[3]);
-	  SetTextValue(0,44,str);
-	  //显示输出阻抗
-	  sprintf((char*)str,"%.2f",CH_VPP_VALUE[3]/CH_VPP_VALUE[1]);
-	  SetTextValue(1,43,str);
-#endif
-
-
-	  RELAY_NC;
-	  HAL_Delay(300);
-	  //开启CH5获取值
-	  CH_VPP_VALUE[4] = SCAN_FFT_1K(0x20)*Svar.FFT_COMPENSATE/511;
-#ifdef TFT
-	  //显示CH5_VPP
-	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[4]);
-	  SetTextValue(0,45,str);
-	  //显示输出阻抗
-	  sprintf((char*)str,"%.3fKΩ",(CH_VPP_VALUE[3]-CH_VPP_VALUE[4])/CH_VPP_VALUE[4]);
-	  SetTextValue(1,42,str);
-	  //显示失真度
-	  sprintf((char*)str,"%.2f%%",THD()*100);
-	  SetTextValue(1,44,str);
-#endif
-
-	  RELAY_NO;
-	  Init_ADS8688(0x10);
-	  HAL_Delay(100);
-	  //扫频
-	  for(i=0;i<116;i++)
-	  {
-		if(freqScanArr[i] == 0) SCAN_VPP[i] = 0;
-		else {
-			Out_freq(2, freqScanArr[i]*10);
-			sprintf((char*)str,"扫频:%ld%%",i*100/116);
-			SetTextValue(1,49,str);
-			HAL_Delay(20);
-			SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
-		}
-	  }
-	  //找最大值 -- 和最大值对应的序列
-	  arm_max_f32(SCAN_VPP, 200, &SCAN_MAX, &SCAN_MAX_INDEX);
-	  DATA_SHOW[0] = 0;
-	  for(i=0;i<116;i++)
-	  {
-		if(i == 5)
-		{
-		  DATA_SHOW[5] = SCAN_VPP[5] / SCAN_MAX * 255;
-		  DATA_SHOW[4] = DATA_SHOW[5] * 4 / 5;
-		  DATA_SHOW[3] = DATA_SHOW[5] * 3 / 5;
-		  DATA_SHOW[2] = DATA_SHOW[5] * 2 / 5;
-		  DATA_SHOW[1] = DATA_SHOW[5] * 1 / 5;
-		}
-		else if(i > 5)
-		{
-		  DATA_SHOW[i] = SCAN_VPP[i] / SCAN_MAX * 255;
-		}
-	  }
-	  GraphChannelDataAdd(1,51,1,(u8*)DATA_SHOW,116);
-
-
-
-	  {//查找下限频率
-		  u16 freq_a,freq_b,lower_freq;
-		  SetTextValue(1,49,(u8*)"测量上下限频率中.");
-		  for(i=0;i<SCAN_MAX_INDEX;i++)
-		  if(SCAN_VPP[i] < 0.7071067f*SCAN_MAX && SCAN_VPP[i+1] > 0.7071067f*SCAN_MAX) break;
-
-		  freq_a = freqScanArr[i]*100;freq_b = freqScanArr[i+1]*100;
-		  lower_freq = (freq_a+freq_b)/2;
-		  while(freq_a != lower_freq && freq_b != lower_freq)
-		  {
-		    Out_freq(2, lower_freq/10.0f);
-		    HAL_Delay(20);
-		    SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
-		    if(SCAN_VPP[i] < 0.7071067f*SCAN_MAX) freq_a=lower_freq;
-		    if(SCAN_VPP[i] >=0.7071067f*SCAN_MAX) freq_b=lower_freq;
-		    lower_freq = (freq_a+freq_b)/2;
-		  }
-		  sprintf((char*)str,"%.1fHz",lower_freq/10.0f);
-		  SetTextValue(1,45,str);
-	  }
-
-	  {//查找上限频率
-		  u16 freq_a,freq_b,lower_freq;
-		  SetTextValue(1,49,(u8*)"测量上上限频率中.");
-		  for(i=SCAN_MAX_INDEX;i<116;i++)
-		  if(SCAN_VPP[i] > 0.7071067f*SCAN_MAX && SCAN_VPP[i+1] < 0.7071067f*SCAN_MAX) break;
-
-		  freq_a = freqScanArr[i]*10;freq_b = freqScanArr[i+1]*10;
-		  lower_freq = (freq_a+freq_b)/2;
-		  while(freq_a != lower_freq && freq_b != lower_freq)
-		  {
-		    Out_freq(2, lower_freq);
-		    HAL_Delay(20);
-		    SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
-		    if(SCAN_VPP[i] > 0.7071067f*SCAN_MAX) freq_a=lower_freq;
-		    if(SCAN_VPP[i] <=0.7071067f*SCAN_MAX) freq_b=lower_freq;
-		    lower_freq = (freq_a+freq_b)/2;
-		  }
-		  sprintf((char*)str,"%dHz",lower_freq);
-		  SetTextValue(1,46,str);
-	  }
-
-	  Out_freq(2, 1000);
-	  HAL_Delay(100);
-	  //DEBUG用，调节DDS输出
-      if(freq != L_freq)
-      {
-        Out_freq(2, freq);
-        L_freq = freq;
-      }
-      if(mv   != L_mv)
-      {
-        Out_mV(2, mv);
-        L_mv = mv;
-      }
-
-
-      LED0_T;
-      DATA_UPDATE();
+	HAL_Delay(100);
+	switch (mode) {
+	case 0:SetTextValue(1,49,(u8*)"待机中");break;
+	case 1:Measure();break;
+	case 2:ScanFreq();break;
+	case 3:FaultChecK();break;
 	}
+	//DEBUG用，调节DDS输出
+    if(freq != L_freq)
+    {
+      Out_freq(2, freq);
+      L_freq = freq;
+    }
+    if(mv   != L_mv)
+    {
+      Out_mV(2, mv);
+      L_mv = mv;
+    }
+
+    LED0_T;
+    DATA_UPDATE();
   }
   /* USER CODE END 3 */
 }
@@ -528,7 +377,226 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
+//测量参数
+void Measure(void)
+{
+  u8 str[20];
+  Out_freq(2, 1000);
+  SetTextValue(1,49,(u8*)"测量电路参数中.   ");
 
+  //开启CH1获取值
+  HAL_Delay(200);
+  CH_VPP_VALUE[0] = SCAN_FFT_1K(0x01)*Svar.FFT_COMPENSATE/511;
+#ifdef TFT
+  //显示CH1_VPP
+  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[0]);
+  SetTextValue(0,41,str);
+#endif
+
+  SetTextValue(1,49,(u8*)"测量电路参数中..  ");
+
+  //开启CH2获取值
+  HAL_Delay(100);
+  CH_VPP_VALUE[1] = SCAN_FFT_1K(0x02)*Svar.FFT_COMPENSATE/511;
+#ifdef TFT
+  //显示CH2_VPP
+  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[1]);
+  SetTextValue(0,42,str);
+  //显示输入阻抗
+  sprintf((char*)str,"%.3fKΩ",CH_VPP_VALUE[1]/(CH_VPP_VALUE[0]-CH_VPP_VALUE[1])*6.8);
+  SetTextValue(1,41,str);
+#endif
+
+  SetTextValue(1,49,(u8*)"测量电路参数中... ");
+
+  //开启CH3获取值
+  HAL_Delay(110);
+  CH_VPP_VALUE[2] = SCAN_FFT_1K(0x04)*Svar.FFT_COMPENSATE*Svar.DC_COMPENSATE/511;
+#ifdef TFT
+  //显示CH3_VPP
+  //	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[2]);
+  //TODO:直流!!!
+  	  sprintf((char*)str,"%.0fmV",CH_VPP_VALUE[2]);
+  	  SetTextValue(0,43,str);
+#endif
+
+  SetTextValue(1,49,(u8*)"测量电路参数中....");
+
+  RELAY_NO;
+  Init_ADS8688(0x10);
+  HAL_Delay(300);
+  //开启CH4获取值
+  CH_VPP_VALUE[3] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
+#ifdef TFT
+  //显示CH4_VPP
+
+  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[3]);
+  SetTextValue(0,44,str);
+  //显示输出阻抗
+  sprintf((char*)str,"%.2f",CH_VPP_VALUE[3]/CH_VPP_VALUE[1]);
+  SetTextValue(1,43,str);
+#endif
+
+
+  RELAY_NC;
+  HAL_Delay(300);
+  //开启CH5获取值
+  CH_VPP_VALUE[4] = SCAN_FFT_1K(0x20)*Svar.FFT_COMPENSATE/511;
+#ifdef TFT
+  //显示CH5_VPP
+  sprintf((char*)str,"%.2fmV",CH_VPP_VALUE[4]);
+  SetTextValue(0,45,str);
+  //显示输出阻抗
+  sprintf((char*)str,"%.3fKΩ",(CH_VPP_VALUE[3]-CH_VPP_VALUE[4])/CH_VPP_VALUE[4]);
+  SetTextValue(1,42,str);
+  //显示失真度
+  sprintf((char*)str,"%.2f%%",THD()*100);
+  SetTextValue(1,44,str);
+#endif
+}
+
+//幅频特性
+void ScanFreq(void)
+{
+	u32 i;
+	u8 str[20];
+	{//扫频
+	  RELAY_NO;
+	  Init_ADS8688(0x10);
+	  HAL_Delay(100);
+	  //扫频
+	  for(i=0;i<116;i++)
+	  {
+		  if(freqScanArr[i] == 0) SCAN_VPP[i] = 0;
+		  else {
+		  	Out_freq(2, freqScanArr[i]*10);
+		  	sprintf((char*)str,"扫频:%ld%%",i*100/116);
+		  	SetTextValue(1,49,str);
+		  	HAL_Delay(20);
+		  	SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
+		  }
+	  }
+	  //找最大值 -- 和最大值对应的序列
+	  arm_max_f32(SCAN_VPP, 200, &SCAN_MAX, &SCAN_MAX_INDEX);
+	  DATA_SHOW[0] = 0;
+	  for(i=0;i<116;i++)
+	  {
+		  if(i == 5)
+		  {
+		    DATA_SHOW[5] = SCAN_VPP[5] / SCAN_MAX * 255;
+		    DATA_SHOW[4] = DATA_SHOW[5] * 4 / 5;
+		    DATA_SHOW[3] = DATA_SHOW[5] * 3 / 5;
+		    DATA_SHOW[2] = DATA_SHOW[5] * 2 / 5;
+		    DATA_SHOW[1] = DATA_SHOW[5] * 1 / 5;
+		  }
+		  else if(i > 5)
+		  {
+		    DATA_SHOW[i] = SCAN_VPP[i] / SCAN_MAX * 255;
+		  }
+	  }
+	  GraphChannelDataAdd(1,51,1,(u8*)DATA_SHOW,116);
+	}
+
+
+	{//查找下限频率
+	  u16 freq_a,freq_b,lower_freq;
+	  SetTextValue(1,49,(u8*)"测量上下限频率中.");
+	  for(i=0;i<SCAN_MAX_INDEX;i++)
+	  if(SCAN_VPP[i] < 0.7071067f*SCAN_MAX && SCAN_VPP[i+1] > 0.7071067f*SCAN_MAX) break;
+	  freq_a = freqScanArr[i]*100;freq_b = freqScanArr[i+1]*100;
+	  lower_freq = (freq_a+freq_b)/2;
+	  while(freq_a != lower_freq && freq_b != lower_freq)
+	  {
+	    Out_freq(2, lower_freq/10.0f);
+	    HAL_Delay(20);
+	    SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
+	    if(SCAN_VPP[i] < 0.7071067f*SCAN_MAX) freq_a=lower_freq;
+	    if(SCAN_VPP[i] >=0.7071067f*SCAN_MAX) freq_b=lower_freq;
+	    lower_freq = (freq_a+freq_b)/2;
+	  }
+	  sprintf((char*)str,"%.1fHz",lower_freq/10.0f);
+	  SetTextValue(1,45,str);
+	}
+	{//查找上限频率
+	  u16 freq_a,freq_b,lower_freq;
+	  SetTextValue(1,49,(u8*)"测量上上限频率中.");
+	  for(i=SCAN_MAX_INDEX;i<116;i++)
+	  if(SCAN_VPP[i] > 0.7071067f*SCAN_MAX && SCAN_VPP[i+1] < 0.7071067f*SCAN_MAX) break;
+	  freq_a = freqScanArr[i]*10;freq_b = freqScanArr[i+1]*10;
+	  lower_freq = (freq_a+freq_b)/2;
+	  while(freq_a != lower_freq && freq_b != lower_freq)
+	  {
+	    Out_freq(2, lower_freq);
+	    HAL_Delay(20);
+	    SCAN_VPP[i] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
+	    if(SCAN_VPP[i] > 0.7071067f*SCAN_MAX) freq_a=lower_freq;
+	    if(SCAN_VPP[i] <=0.7071067f*SCAN_MAX) freq_b=lower_freq;
+	    lower_freq = (freq_a+freq_b)/2;
+	  }
+	  sprintf((char*)str,"%dHz",lower_freq);
+	  SetTextValue(1,46,str);
+	}
+}
+//检查故障
+void FaultChecK(void)
+{
+
+	  u8 str[20];
+	  Out_freq(2, 1000);
+
+	  //开启CH1获取值
+	  HAL_Delay(200);
+	  CH_VPP_VALUE[0] = SCAN_FFT_1K(0x01)*Svar.FFT_COMPENSATE/511;
+
+	  //开启CH2获取值
+	  HAL_Delay(100);
+	  CH_VPP_VALUE[1] = SCAN_FFT_1K(0x02)*Svar.FFT_COMPENSATE/511;
+
+	  //开启CH3获取值
+	  HAL_Delay(110);
+	  CH_VPP_VALUE[2] = SCAN_FFT_1K(0x04)*Svar.FFT_COMPENSATE*Svar.DC_COMPENSATE/511;
+
+	  RELAY_NO;
+	  Init_ADS8688(0x10);
+	  HAL_Delay(300);
+	  //开启CH4获取值
+	  CH_VPP_VALUE[3] = SCAN_RMS()*Svar.FFT_COMPENSATE/Svar.RMS_COMPENSATE;
+
+	  RELAY_NC;
+	  HAL_Delay(300);
+	  //开启CH5获取值
+	  CH_VPP_VALUE[4] = SCAN_FFT_1K(0x20)*Svar.FFT_COMPENSATE/511;
+  if(CH_VPP_VALUE[2] > 2065 && CH_VPP_VALUE[2] < 2095)
+	  SetTextValue(1,49,(u8*)"R2断路");
+  else if(CH_VPP_VALUE[2] > 160  && CH_VPP_VALUE[2] < 210)
+	  SetTextValue(1,49,(u8*)"R3断路");
+  else if(CH_VPP_VALUE[2] > 5470 && CH_VPP_VALUE[2] < 5495)
+	  SetTextValue(1,49,(u8*)"R1短路");
+  else if(CH_VPP_VALUE[2] > 5860 && CH_VPP_VALUE[2] < 5890)
+	  SetTextValue(1,49,(u8*)"R3短路");
+  else if(CH_VPP_VALUE[2] > 90   && CH_VPP_VALUE[2] <  110)
+	  SetTextValue(1,49,(u8*)"R4短路");
+  else if(CH_VPP_VALUE[2] > 5805 && CH_VPP_VALUE[2] < 5825)
+  {
+	if(CH_VPP_VALUE[1] > 19.80 && CH_VPP_VALUE[1] < 20.10)
+	  SetTextValue(1,49,(u8*)"R1断路");
+	if(CH_VPP_VALUE[1] > 17.80 && CH_VPP_VALUE[1] < 19.20)
+	  SetTextValue(1,49,(u8*)"R4断路");
+	if(CH_VPP_VALUE[1] < 1)
+	  SetTextValue(1,49,(u8*)"R2短路");
+  }
+  else if(CH_VPP_VALUE[2] > 3630 && CH_VPP_VALUE[2] < 3640)
+  {
+	if(CH_VPP_VALUE[4] < 1)
+	  SetTextValue(1,49,(u8*)"C1断路");
+	if(CH_VPP_VALUE[3] > 28 && CH_VPP_VALUE[3] < 32)
+	  SetTextValue(1,49,(u8*)"C2断路");
+  }
+  else
+  {
+	  SetTextValue(1,49,(u8*)"电路正常");
+  }
+}
 /* USER CODE END 4 */
 
 /**
