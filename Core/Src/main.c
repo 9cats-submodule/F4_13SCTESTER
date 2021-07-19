@@ -300,6 +300,64 @@ int main(void)
   Out_freq(2, 10);
   Out_mV(2, 300);
 
+  {
+		u16 i;
+		arm_rfft_fast_instance_f32 S;
+		float temp[10];
+		float Phase[2];
+
+		for(i=0;i<2048;i++)
+		{
+			FFT_INPUT[i] = WAVE[i] = 600*arm_sin_f32(2*PI*2*i/2048) + 600;
+		}
+		arm_rfft_fast_init_f32(&S,2048);                    //FFT初始化
+		arm_rfft_fast_f32(&S, FFT_INPUT, FFT_OUTPUT,0);     //FFT变化
+		arm_cmplx_mag_f32(FFT_OUTPUT,FFT_OUTPUT_REAL,2048); //求模
+		for(i=0;i<2048;i++)
+		{
+			OutData[0] = WAVE[i];
+			OutData[1] = FFT_INPUT[i];
+			OutData[2] = FFT_OUTPUT[i];
+			OutData[3] = FFT_OUTPUT_REAL[i];
+			OutPut_Data();
+		}
+		temp[0] = FFT_OUTPUT[2*2];
+		temp[1] = FFT_OUTPUT[2*2+1];
+
+
+
+		for(i=0;i<2048;i++)
+		{
+			FFT_INPUT[i] = WAVE[i] = 600*arm_sin_f32(2*PI*2*i/2048+PI/4) + 600;
+		}
+		arm_rfft_fast_init_f32(&S,2048);                    //FFT初始化
+		arm_rfft_fast_f32(&S, FFT_INPUT, FFT_OUTPUT,0);     //FFT变化
+		arm_cmplx_mag_f32(FFT_OUTPUT,FFT_OUTPUT_REAL,2048); //求模
+		for(i=0;i<2048;i++)
+		{
+			OutData[0] = WAVE[i];
+			OutData[1] = FFT_INPUT[i];
+			OutData[2] = FFT_OUTPUT[i];
+			OutData[3] = FFT_OUTPUT_REAL[i];
+			OutPut_Data();
+		}
+		temp[2] = FFT_OUTPUT[2*2];
+		temp[3] = FFT_OUTPUT[2*2+1];
+
+		// atan2f(y,x)
+		Phase[0] = atan2f(temp[1],temp[0]);
+		Phase[1] = atan2f(temp[3],temp[2]);
+//		if(Phase[1] < Phase[0])
+//			return 2*PI+Phase[1]-Phase[0];
+//		else
+//			return Phase[1]-Phase[0];
+		Phase[1] = atan2f(temp[3],temp[2]);
+  }
+
+  while(1)
+  {
+
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
