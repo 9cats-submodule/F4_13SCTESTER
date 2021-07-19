@@ -7,6 +7,7 @@
 #include "main.h"
 #include "gpio.h"
 
+
 // 定义可能会出现的兼容变量类型
 #define u32 uint32_t
 #define u16 uint16_t
@@ -14,6 +15,8 @@
 #define s32 int32_t
 #define s16 int16_t
 #define s8 int8_t
+#define ON 1
+#define OFF 0
 
 // LED电平设置 0-亮 1-灭
 #define LED0(n) (n?HAL_GPIO_WritePin(LED0_GPIO_Port,LED0_Pin,GPIO_PIN_SET):HAL_GPIO_WritePin(LED0_GPIO_Port,LED0_Pin,GPIO_PIN_RESET))
@@ -96,4 +99,19 @@ void delay_ns (u8 t);
 #define PJin(n) BIT_ADDR(GPIOJ_IDR_Addr,n) //输?
 #define PKout(n) BIT_ADDR(GPIOK_ODR_Addr,n) //输出
 #define PKin(n) BIT_ADDR(GPIOK_IDR_Addr,n) //输?
+
+/*!
+ *  \brief 数据初始化，若按下KEY0则恢复默认
+ */
+void DATA_INIT(void);
+/*!
+ *  \brief 数据更新
+ */
+void DATA_UPDATE(void);
+/*!
+ *  \brief 数字转字符串
+ */
+extern u8 STR_BUF[40];
+#define Str(format,num) (sprintf((char*)STR_BUF,format,num),STR_BUF)
+
 #endif

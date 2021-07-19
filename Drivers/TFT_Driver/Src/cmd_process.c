@@ -8,6 +8,7 @@
 #include "stdarg.h"
 #include "stm32f4xx_hal.h"
 #include "base.h"
+#include "main.h"
 
 extern float goodAmp[2];
 /*! 
@@ -176,8 +177,16 @@ void NotifyButton(uint16 screen_id, uint16 control_id, uint8 state, void *userda
  */
 void NotifyText(uint16 screen_id, uint16 control_id, uint8 *str, void *userdata)
 {
-	if ((screen_id == 0) && (control_id == 1))
+	if ((screen_id == 0) && (control_id == 60))
 	{
+//		Svar.ADS_OFFSET = atoi((char*)str);
+		Svar.ADS_OFFSET = atoff((char*)str);
+	}
+
+	if ((screen_id == 0) && (control_id == 59))
+	{
+//		Svar.ADS_OFFSET = atoi((char*)str);
+		Svar.C3_NORMAL = atoff((char*)str);
 	}
 }
 

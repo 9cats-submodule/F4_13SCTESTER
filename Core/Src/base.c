@@ -1,52 +1,74 @@
-// base.câ½‚ä»¶
 #include "base.h"
-static u8 fac_us = 0; //uså»¶æ—¶å€ä¹˜æ•°
-//åˆå§‹åŒ–å»¶è¿Ÿå‡½æ•°
-//SYSTICKçš„æ—¶é’Ÿå›ºå®šä¸ºHCLKæ—¶é’Ÿçš„1/8
-//SYSCLK:ç³»ç»Ÿæ—¶é’Ÿ
+#include "w25qxx.h"
+
+static u8 fac_us = 0;            //usÑÓÊ±±¶³ËÊı
+const u32 SAVE_ADDR = 0x0000f000;//FLASH´¢´æµØÖ·
+u8 STR_BUF[40]={0};
+
+/*!
+ *  \brief ³õÊ¼»¯ÑÓ³Ùº¯Êı
+ *  \param SYSCLK ÏµÍ³Ê±ÖÓ
+ */
 void delay_init(u8 SYSCLK) {
-	HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK); //SysTické¢‘ç‡ä¸ºHCLK
+	HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK); //SysTickÆµÂÊÎªHCLK
 	fac_us = SYSCLK;
 }
+
+/*!
+ *  \brief ÑÓÊ±º¯Êı
+ *  \param t ns
+ */
 void delay_ns(u8 t) {
 	do {
 		;
 	} while (--t);
 }
+
+/*!
+ *  \brief ÑÓÊ±º¯Êı
+ *  \param t nus
+ */
 void delay_us(u32 nus) {
 	u32 ticks;
 	u32 told, tnow, tcnt = 0;
-	u32 reload = SysTick->LOAD; //LOADçš„å€¼
-	ticks = nus * fac_us;       //éœ€è¦çš„èŠ‚æ‹æ•°
-	told = SysTick->VAL;        //åˆšè¿›â¼Šæ—¶çš„è®¡æ•°å™¨å€¼
+	u32 reload = SysTick->LOAD; //LOADµÄÖµ
+	ticks = nus * fac_us;       //ĞèÒªµÄ½ÚÅÄÊı
+	told = SysTick->VAL;        //¸Õ½ø?Ê±µÄ¼ÆÊıÆ÷Öµ
 	while (1) {
 		tnow = SysTick->VAL;
 		if (tnow != told) {
 			if (tnow < told)
-				tcnt += told - tnow; //è¿™â¾¥æ³¨æ„â¼€ä¸‹SYSTICKæ˜¯â¼€ä¸ªé€’å‡çš„è®¡æ•°å™¨å°±å¯ä»¥äº†.
+				tcnt += told - tnow; //Õâ?×¢Òâ?ÏÂSYSTICKÊÇ?¸öµİ¼õµÄ¼ÆÊıÆ÷¾Í¿ÉÒÔÁË.
 			else
 				tcnt += reload - tnow + told;
 			told = tnow;
 			if (tcnt >= ticks)
-				break; //æ—¶é—´è¶…è¿‡/ç­‰äºè¦å»¶è¿Ÿçš„æ—¶é—´,åˆ™é€€å‡º.
+				break; //Ê±¼ä³¬¹ı/µÈÓÚÒªÑÓ³ÙµÄÊ±¼ä,ÔòÍË³ö.
 		}
 	};
 }
-//å»¶æ—¶nms
-//nms:è¦å»¶æ—¶çš„msæ•°
+
+/*!
+ *  \brief ÑÓÊ±º¯Êı
+ *  \param t ms
+ */
 void delay_ms(u16 nms) {
 	u32 i;
 	for (i = 0; i < nms; i++)
 		delay_us(1000);
 }
-//æŒ‰é”®æ‰«æå‡½æ•°
-//ä¸ä½¿ç”¨æ—¶æ³¨é‡Š
+/*!
+ *  \brief °´¼üÉ¨Ãèº¯Êı
+ *  \param mode ÊÇ·ñÖ§³ÖÁ¬°´
+ */
+//°´¼üÉ¨Ãèº¯Êı
+//²»Ê¹ÓÃÊ±×¢ÊÍ
 u8 KEY_Scan(u8 mode) {
-	static u8 key_up = 1; //æŒ‰é”®æŒ‰æ¾å¼€æ ‡å¿—
+	static u8 key_up = 1; //°´¼ü°´ËÉ¿ª±êÖ¾
 	if (mode)
-		key_up = 1; //æŒè¿æŒ‰
+		key_up = 1; //³ÖÁ¬°´
 	if (key_up && (KEY0 == 0 || KEY1 == 0 || KEY2 == 0)) {
-		HAL_Delay(10); //å»æŠ–åŠ¨
+		HAL_Delay(10); //È¥¶¶¶¯
 		key_up = 0;
 		if (KEY0 == 0)
 			return KEY0_PRES;
@@ -56,5 +78,46 @@ u8 KEY_Scan(u8 mode) {
 			return KEY2_PRES;
 	} else if (KEY0 == 1 && KEY1 == 1 && KEY2 == 1)
 		key_up = 1;
-	return 0; // æŒ‰é”®æŒ‰ä¸‹
+	return 0; // °´¼ü°´ÏÂ
+}
+
+/*!
+ *  \brief  Êı¾İ±£´æ²Ù×÷£¬0-Ğ´Èë 1-¶Á³ö 2-Ğ´Èë
+ *  \param mode ²Ù×÷Ä£Ê½
+ */
+void DATA_OP(u8 mode)
+{
+  u8 *VAR_ADDR   = (u8*)&Svar; //±äÁ¿µØÖ·
+  u32 FLASH_ADDR = SAVE_ADDR ; //FLASH´¢´æÊ×µØÖ·
+  u8  data;                    //Ôİ´æÊı¾İ
+  u16 size;                    //µ±Ç°ÒÑ¾­´¢´æ´óĞ¡
+
+  for(size=0;size<sizeof(SVAR);size++,VAR_ADDR++,FLASH_ADDR++)
+  {
+	switch(mode)
+	{
+	  case 0:W25QXX_Write(VAR_ADDR,FLASH_ADDR,1);break;
+	  case 1:W25QXX_Read (VAR_ADDR,FLASH_ADDR,1);break;
+	  case 2:{
+	      W25QXX_Read (&data,FLASH_ADDR,1);
+		  if(data != *VAR_ADDR) W25QXX_Write(VAR_ADDR,FLASH_ADDR,1);
+	  }
+	}
+  }
+}
+
+/*!
+ *  \brief Êı¾İ³õÊ¼»¯£¬Èô°´ÏÂKEY0Ôò»Ö¸´Ä¬ÈÏ
+ */
+void DATA_INIT() {
+  u8 key = KEY_Scan(0);
+  if(key == KEY0_PRES)  DATA_OP(0);
+  else                  DATA_OP(1);
+}
+
+/*!
+ *  \brief Êı¾İ¸üĞÂ
+ */
+void DATA_UPDATE() {
+    DATA_OP(2);
 }

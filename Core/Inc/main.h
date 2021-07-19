@@ -50,8 +50,9 @@ typedef struct _SVAR
 {
   float FFT_COMPENSATE; //²¹³¥FFTµÄÎó²î
   float RMS_COMPENSATE; //²¹³¥RMS
-  float  DC_COMPENSATE; //FFTµÄÖ¸Áî²¹³¥
-  s16   ADS_OFFSET;     //ADSÆ«ÖÃ²¹³¥
+  float DC_COMPENSATE;  //FFTµÄÖ¸Áî²¹³¥
+  float ADS_OFFSET;     //ADSÆ«ÖÃ²¹³¥
+  float C3_NORMAL;      //C3
 }SVAR;
 #pragma pack(pop)
 extern SVAR Svar;
