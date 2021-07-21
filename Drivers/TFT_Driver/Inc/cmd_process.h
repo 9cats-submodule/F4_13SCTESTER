@@ -1,7 +1,8 @@
 #ifndef _CMD_PROCESS_H
 #define _CMD_PROCESS_H
-#include "hmi_driver.h"
+#include "hmi_user_uart.h"
 #include "base.h"
+#include "hmi_driver.h"
 
 #define NOTIFY_TOUCH_PRESS       0X01   //触摸屏按下通知
 #define NOTIFY_TOUCH_RELEASE     0X03  //触摸屏松开通知
@@ -44,15 +45,12 @@ enum CtrlType
 typedef struct
 {
 	uint8    cmd_head;  //帧头
-
 	uint8    cmd_type;  //命令类型(UPDATE_CONTROL)	
 	uint8    ctrl_msg;   //CtrlMsgType-指示消息的类型
 	uint16   screen_id;  //产生消息的画面ID
 	uint16   control_id;  //产生消息的控件ID
 	uint8    control_type; //控件类型
-
 	uint8    param[10];//可变长度参数，最多10个字节
-
 	uint8    cmd_tail[4];   //帧尾
 }CTRL_MSG,*PCTRL_MSG;
 

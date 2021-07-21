@@ -34,12 +34,6 @@ extern "C" {
 /* USER CODE BEGIN Includes */
 #include "base.h"
 
-#define u32 uint32_t
-#define u16 uint16_t
-#define u8 uint8_t
-#define s32 int32_t
-#define s16 int16_t
-#define s8 int8_t
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -56,7 +50,7 @@ typedef struct _SVAR
 }SVAR;
 #pragma pack(pop)
 extern SVAR Svar;
-extern u8   mode;
+extern uint8_t mode;
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/

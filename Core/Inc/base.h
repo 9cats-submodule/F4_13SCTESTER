@@ -1,12 +1,6 @@
 // base.h头文件
 #ifndef __BASE_H
 #define __BASE_H
-#include "stdlib.h"
-#include "stm32f4xx.h"
-#include "stm32f4xx_hal.h"
-#include "main.h"
-#include "gpio.h"
-
 
 // 定义可能会出现的兼容变量类型
 #define u32 uint32_t
@@ -15,6 +9,17 @@
 #define s32 int32_t
 #define s16 int16_t
 #define s8 int8_t
+
+#include "stdlib.h"
+#include "stdio.h"
+#include "stm32f4xx.h"
+#include "stm32f4xx_hal.h"
+#include "gpio.h"
+#include "usart.h"
+#include "cmsis_os.h"
+#include "queue.h"
+#include "data.h"
+
 #define ON 1
 #define OFF 0
 
@@ -113,5 +118,6 @@ void DATA_UPDATE(void);
  */
 extern u8 STR_BUF[40];
 #define Str(format,num) (sprintf((char*)STR_BUF,format,num),STR_BUF)
+#define vTaskDelay_ms(ms) vTaskDelay(ms / portTICK_RATE_MS);
 
 #endif

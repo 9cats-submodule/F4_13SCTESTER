@@ -17,3 +17,6 @@ MDK-ARM/*
 !MDK-ARM/*.uvprojx
 !MDK-ARM/*.s
 /Release/
+
+//FreeRTOS
+Middlewares/Third_party/FreeRTOS

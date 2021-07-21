@@ -1,5 +1,5 @@
-#include "24cxx.h" 
 #include "base.h"
+#include "24cxx.h" 
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序只供学习使用，未经作者许可，不得用于其它任何用途
 //ALIENTEK STM32F407开发板
@@ -59,7 +59,7 @@ void AT24CXX_WriteOneByte(u16 WriteAddr,u8 DataToWrite)
 	IIC_Send_Byte(DataToWrite);     //发送字节							   
 	IIC_Wait_Ack();  		    	   
     IIC_Stop();//产生一个停止条件 
-	delay_ms(10);	 
+	HAL_Delay(10);	 
 }
 //在AT24CXX里面的指定地址开始写入长度为Len的数据
 //该函数用于写入16bit或者32bit的数据.

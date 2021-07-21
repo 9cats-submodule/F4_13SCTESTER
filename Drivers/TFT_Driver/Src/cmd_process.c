@@ -1,14 +1,9 @@
+#include "base.h"
 #include "hmi_driver.h"
 #include "hmi_user_uart.h"
 #include "cmd_queue.h"
 #include "cmd_process.h"
-
-#include "stdio.h"
-#include "string.h"
 #include "stdarg.h"
-#include "stm32f4xx_hal.h"
-#include "base.h"
-#include "main.h"
 
 extern float goodAmp[2];
 /*! 
@@ -40,7 +35,7 @@ void ProcessMessage(PCTRL_MSG msg, uint16 size)
 	case NOTIFY_WRITE_FLASH_FAILD: //写FLASH失败
 		NotifyWriteFlash(0, NULL);
 		break;
-	case NOTIFY_READ_FLASH_OK:								//读取FLASH成功
+	case NOTIFY_READ_FLASH_OK:	//读取FLASH成功
 		NotifyReadFlash(1, cmd_buffer + 2, size - 6, NULL); //去除帧头帧尾
 		break;
 	case NOTIFY_READ_FLASH_FAILD: //读取FLASH失败

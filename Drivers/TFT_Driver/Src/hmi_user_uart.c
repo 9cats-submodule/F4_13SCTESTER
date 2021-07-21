@@ -35,32 +35,10 @@ void TFT_Init(void)
     HAL_UART_Receive_IT(&huart1, &RxBuffer, 1);//使能接收中断
     queue_reset();
 }
-void Param_Update(void) //获取当前新参数
-{
-    qsize size = queue_find_cmd(cmd_buffer,CMD_MAX_SIZE);
-    if(size)
-    {
-    	LED1_T;
-        ProcessMessage((PCTRL_MSG)cmd_buffer, size);//指令处理
-        LED1_T;
-    }
-}
 
 void  SendChar(uchar t)
 {
-	USART1->DR = (t & (uint16_t)0x01FF);
+    USART1->DR = (t & (uint16_t)0x01FF);
     while(__HAL_UART_GET_FLAG(&huart1, UART_FLAG_TXE) == RESET);
     while(__HAL_UART_GET_FLAG(&huart1, UART_FLAG_TC) == RESET);
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if (huart->Instance == USART1)
-  {
-    huart1.RxState = HAL_UART_STATE_READY;
-	__HAL_UNLOCK(&huart1);
-	queue_push(RxBuffer);
-	Param_Update();//中断里面处理完指令
-	HAL_UART_Receive_IT(&huart1, &RxBuffer, 1);
-  }
 }
